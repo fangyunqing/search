@@ -116,7 +116,7 @@ class DataBaseManage:
 
     def __init__(self):
         self._pools: Dict[str, DataBasePool] = {}
-        self._datasource_list = SortedKeyList(key=lambda ds: ds.major + str(100000000 - ds.order).zfill(10))
+        self._datasource_list = SortedKeyList(key=lambda ds: ds.order)
 
     def register(self, ds: SearchDatasource):
         if ds.name in self._pools:

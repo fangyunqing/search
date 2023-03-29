@@ -37,20 +37,24 @@ class AbstractDBSearchCache(DBSearchCache):
                 tmp_tablename = search_buffer.tmp_tablename.format(get_ident())
                 sql_list: List[str] = []
                 tmp_sql_list: List[str] = []
-                select_exp = search_buffer.search_sql_object.select_exp
+                select_expression = search_buffer.search_sql.select_expression
                 if search_cache_index == 0:
                     if top:
-                        select_exp = f"{select_exp} top {search_context.search_object.top}"
+                        select_expression = f"{select_expression} top {search_context.search.top}"
 
-                from_exp = " ".join(search_buffer.from_exp_list)
-                from_exp = from_exp.format(*[get_ident() for i in range(0, from_exp.count("{}"))])
-                sql_list.append(select_exp)
+                where_expression = search_buffer.where_expression
+                where_expression = where_expression.format(*[get_ident() for i in range(0, search_buffer.where_expression.count("{}"))])
+                sql_list.append(select_expression)
                 sql_list.append(",".join(search_buffer.field_list))
-                sql_list.append(from_exp)
+                sql_list.append(search_buffer.search_sql.from_expression)
+                sql_list.append(where_expression)
+                sql_list.append(search_buffer.search_sql.other_expression)
 
-                tmp_sql_list.append(select_exp)
+                tmp_sql_list.append(select_expression)
                 tmp_sql_list.append(",".join(search_buffer.tmp_fields) + f" into {tmp_tablename}")
-                tmp_sql_list.append(from_exp)
+                tmp_sql_list.append(search_buffer.search_sql.from_expression)
+                tmp_sql_list.append(where_expression)
+                tmp_sql_list.append(search_buffer.search_sql.other_expression)
 
                 sql = " ".join(sql_list)
                 tmp_sql = " ".join(tmp_sql_list)

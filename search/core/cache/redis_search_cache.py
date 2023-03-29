@@ -61,7 +61,7 @@ class AbstractRedisSearchCache(RedisSearchCache):
 
     def set_data(self, search_context: SearchContext, data_df: pd.DataFrame, page_begin: int = 1, whole: bool = True):
         r = redis.Redis(connection_pool=redis_pool)
-        page_size = search_context.search_object.page_size
+        page_size = search_context.search.page_size
         for index in range(0, self.count(search_context=search_context, data_df=data_df)):
             chunk_df: pd.DataFrame = data_df.iloc[page_size * index:page_size * (index + 1)]
             if len(chunk_df) > 0:
@@ -70,7 +70,7 @@ class AbstractRedisSearchCache(RedisSearchCache):
                 page_begin += 1
 
         r = redis.Redis(connection_pool=redis_pool)
-        value: bytes = r.get(name=f"{search_context.search_exp_md5}_{constant.CSV}")
+        value: bytes = r.get(name=f"{search_context.search_md5.search_md5}_{constant.CSV}")
         if value:
             page = value.decode()
             page = json.loads(page)
@@ -86,9 +86,9 @@ class AbstractRedisSearchCache(RedisSearchCache):
                 page.pages = "???"
                 page = page.to_dict()
 
-        r.setex(name=f"{search_context.search_exp_md5}_{constant.TOTAL}",
+        r.setex(name=f"{search_context.search_md5.search_md5}_{constant.TOTAL}",
                 value=json.dumps(page),
-                time=search_context.search_object.redis_cache_time)
+                time=search_context.search.redis_cache_time)
 
     @abstractmethod
     def count(self, search_context: SearchContext, data_df: pd.DataFrame):
@@ -105,12 +105,12 @@ class DefaultRedisSearchCache(AbstractRedisSearchCache):
     execs = ["exec"]
 
     def count(self, search_context: SearchContext, data_df: pd.DataFrame):
-        page_size = search_context.search_object.page_size
+        page_size = search_context.search.page_size
         return math.ceil(len(data_df) / page_size)
 
     def exec(self, r: Redis, search_context: SearchContext, chunk_df: pd.DataFrame, page_number: int):
         data = json.dumps(chunk_df.to_dict("records"), cls=SearchEncoder, ignore_nan=True)
-        redis_key: str = f"{search_context.search_exp_md5}_{page_number}"
+        redis_key: str = f"{search_context.search_md5.search_md5}_{page_number}"
         r.setex(name=redis_key,
-                time=search_context.search_object.redis_cache_time,
+                time=search_context.search.redis_cache_time,
                 value=data)

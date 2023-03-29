@@ -39,7 +39,7 @@ class AbstractCSVExportCache(CSVExportCache):
 
     def get_data(self, search_context: SearchContext) -> Optional[pd.DataFrame]:
         search_file: models.SearchFile = \
-            models.SearchFile.query.filter_by(search_md5=search_context.search_exp_md5, use=constant.SEARCH) \
+            models.SearchFile.query.filter_by(search_md5=search_context.search.search_md5, use=constant.SEARCH) \
             .order_by(desc(models.SearchFile.create_time)) \
             .first()
         if search_file and os.path.isfile(search_file.path):
@@ -77,7 +77,7 @@ class DefaultCSVExportCache(AbstractCSVExportCache):
         data_df.to_csv(file_path, sep="`", index=False)
         d, f = os.path.split(file_path)
         search_file.path = file_path
-        search_file.search_md5 = search_context.search_exp_md5
+        search_file.search_md5 = search_context.search_md5.search_md5
         search_file.use = constant.FileUse.SEARCH
         search_file.size = os.path.getsize(file_path)
         search_file.file_name = f
@@ -86,11 +86,11 @@ class DefaultCSVExportCache(AbstractCSVExportCache):
 
     def exec_page(self, search_context: SearchContext, data_df: pd.DataFrame):
         page = Page()
-        page.size = search_context.search_object.page_size
+        page.size = str(search_context.search.page_size)
         page.total = str(len(data_df))
-        page.pages = str(math.ceil(len(data_df) / page.size))
+        page.pages = str(math.ceil(len(data_df) / search_context.search.page_size))
 
         r = redis.Redis(connection_pool=redis_pool)
-        r.setex(name=f"{search_context.search_exp_md5}_{constant.CSV}",
+        r.setex(name=f"{search_context.search_md5.search_md5}_{constant.CSV}",
                 value=json.dumps(page.to_dict()),
-                time=search_context.search_object.redis_cache_time)
+                time=search_context.search.redis_cache_time)

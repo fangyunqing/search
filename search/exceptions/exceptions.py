@@ -16,3 +16,11 @@ class ProgressException(SearchException):
 
 class SearchUtilException(SearchException):
     pass
+
+
+class SearchSqlParseException(SearchException):
+    pass
+
+
+class MustNotHaveSubSelectException(SearchSqlParseException):
+    pass

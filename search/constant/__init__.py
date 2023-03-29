@@ -12,6 +12,7 @@ from .file_type import FileType
 from .file_use import FileUse
 from .search_compose import SearchCompose
 from .search_status import SearchStatus
+from .search_point import SearchPoint
 
 SEARCH_FIELD = "searchField"
 SEARCH_CONDITION = "searchCondition"

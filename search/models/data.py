@@ -18,8 +18,6 @@ class SearchDatasource(db.Model, SerializerMixin):
     id = Column(Integer, primary_key=True, autoincrement=True)
     # 名称
     name = Column(String(255), nullable=False, unique=True)
-    # 是否主数据库
-    major = Column(String(1), default="1")
     # ip
     ip = Column(String(128), nullable=False)
     # port
@@ -32,14 +30,14 @@ class SearchDatasource(db.Model, SerializerMixin):
     user_name = Column(String(128), nullable=False)
     # 密码
     password = Column(String(128), nullable=False)
-    # 备注
-    remark = Column(String(128))
+    # 排序号
+    order = Column(Integer, default=0)
     # 是否可用
     usable = Column(String(1), default="1")
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
-    # 排序号
-    order = Column(Integer, default=0)
+    # 备注
+    remark = Column(String(128))
 
 
 class Search(db.Model, SerializerMixin):
@@ -68,15 +66,17 @@ class Search(db.Model, SerializerMixin):
     export_file_cache_time = Column(Integer, default=30)
     # 前后页数
     pages = Column(Integer, default=10)
-    # 生成时间
-    create_time = Column(DateTime(timezone=True), default=func.now())
     # 状态
     status = Column(String(128), default=constant.SearchStatus.PARSING)
+    # 错误信息
+    error = Column(String(1024))
+    # 生成时间
+    create_time = Column(DateTime(timezone=True), default=func.now())
 
 
 class SearchCondition(db.Model, SerializerMixin):
     __tablename__ = "search_condition"
-    serialize_only = ("id", "name", "display", "datatype", "order", "usable", "create_time")
+    serialize_only = ("id", "name", "display", "datatype", "order", "create_time")
     __table_args__ = (
         db.UniqueConstraint('id', 'name', name='uix_search_condition_id_name'),
     )
@@ -92,8 +92,6 @@ class SearchCondition(db.Model, SerializerMixin):
     order = Column(Integer, nullable=False)
     # 搜索的ID
     search_id = Column(Integer, ForeignKey("search.id"))
-    # 是否可用
-    usable = Column(Integer, default=1)
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
 
@@ -101,7 +99,7 @@ class SearchCondition(db.Model, SerializerMixin):
 class SearchField(db.Model, SerializerMixin):
     __tablename__ = "search_field"
     serialize_only = ("id", "name", "display", "datatype", "rule", "result_fields", "order",
-                      "visible", "usable", "create_time")
+                      "visible", "create_time")
     __table_args__ = (
         db.UniqueConstraint('id', 'name', name='uix_search_field_id_name'),
     )
@@ -115,9 +113,7 @@ class SearchField(db.Model, SerializerMixin):
     rule = Column(String(1024), nullable=False)
     # 结果字段
     result_fields = Column(String(2048))
-    # 规则是否脚本
-    script = Column(String(1), default='0')
-    # 数据类型 int str date list float
+    # 数据类型 int str date float
     datatype = Column(String(255), nullable=False, default="str")
     # 是否可见
     visible = Column(String(1), default='1')
@@ -125,22 +121,20 @@ class SearchField(db.Model, SerializerMixin):
     order = Column(Integer, nullable=False)
     # 搜索的ID
     search_id = Column(Integer, ForeignKey("search.id"))
-    # 是否可用
-    usable = Column(Integer, default=1)
     # 生成路径
     search_field_gen_paths = db.relationship("SearchFieldGenPath", lazy='dynamic', backref="search_field")
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
 
 
-class SearchSQLGenField(db.Model, SerializerMixin):
-    __tablename__ = "search_sql_gen_field"
+class SearchSQLField(db.Model, SerializerMixin):
+    __tablename__ = "search_sql_field"
     # 主键
     id = Column(Integer, primary_key=True, autoincrement=True)
-    # 生成的字段
-    gen_field = Column(String(1024), nullable=False)
-    # 字段表达式
-    exp_field = Column(String(1024))
+    # 左侧
+    left = Column(String(1024), nullable=False)
+    # 右侧
+    right = Column(String(1024))
     # 搜索SQL的ID
     search_sql_id = Column(Integer, ForeignKey("search_sql.id"))
     # 生成时间
@@ -149,7 +143,8 @@ class SearchSQLGenField(db.Model, SerializerMixin):
 
 class SearchSQL(db.Model, SerializerMixin):
     __tablename__ = "search_sql"
-    serialize_only = ("id", "name", "display", "exp", "order", "usable", "create_time")
+    serialize_only = ("id", "name", "display", "expression", "select_expression", "from_expression",
+                      "where_expression", "other_expression", "order", "create_time")
     __table_args__ = (
         db.UniqueConstraint('id', 'name', name='uix_search_sql_id_name'),
     )
@@ -159,24 +154,26 @@ class SearchSQL(db.Model, SerializerMixin):
     name = Column(String(255), nullable=False)
     # 展示名称
     display = Column(String(255), nullable=False)
-    # sql
-    exp = Column(Text, nullable=False)
+    # expression
+    expression = Column(Text, nullable=False)
+    # select
+    select_expression = Column(Text, nullable=True)
+    # from
+    from_expression = Column(Text, nullable=True)
+    # where
+    where_expression = Column(Text, nullable=True)
+    # other
+    other_expression = Column(Text, nullable=True)
     # 排序号
     order = Column(Integer, nullable=False)
+    # 字段
+    fields = db.relationship("SearchSQLField", lazy='dynamic', backref="search_sql")
     # 结果字段
-    result_fields = db.relationship("SearchSqlResult", lazy='dynamic', backref="search_sql")
+    results = db.relationship("SearchSqlResult", lazy='dynamic', backref="search_sql")
     # 条件字段
-    condition_fields = Column(String(2048))
+    conditions = db.relationship("SearchSqlCondition", lazy='dynamic', backref="search_sql")
     # 搜索的ID
     search_id = Column(Integer, ForeignKey("search.id"))
-    # select 语句
-    select_exp = Column(String(256))
-    # from后面的语句
-    from_exp = Column(Text, nullable=True)
-    # 是否可用
-    usable = Column(Integer, default=1)
-    # 字段
-    search_sql_gen_fields = db.relationship("SearchSQLGenField", lazy='dynamic', backref="search_sql")
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
 
@@ -203,10 +200,28 @@ class SearchSqlResult(db.Model, SerializerMixin):
     id = Column(Integer, primary_key=True, autoincrement=True)
     # 搜索SQL的ID
     search_sql_id = Column(Integer, ForeignKey("search_sql.id"))
-    # 结果字段
-    result_field = Column(String(1024))
-    # 字段
-    field_name = Column(String(1024))
+    # 左边
+    left = Column(String(1024))
+    # 右边
+    right = Column(String(1024))
+    # 中间
+    mid = Column(String(1024))
+    # 生成时间
+    create_time = Column(DateTime(timezone=True), default=func.now())
+
+
+class SearchSqlCondition(db.Model, SerializerMixin):
+    __tablename__ = "search_sql_condition"
+    # 主键
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    # 搜索SQL的ID
+    search_sql_id = Column(Integer, ForeignKey("search_sql.id"))
+    # 左边
+    left = Column(String(1024))
+    # 右边
+    right = Column(String(1024))
+    # 中间
+    mid = Column(String(1024))
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
 
@@ -232,3 +247,4 @@ class SearchFile(db.Model, SerializerMixin):
     status = Column(String(128), default=constant.FileStatus.USABLE)
     # 文件名
     file_name = Column(String(128), nullable=True)
+

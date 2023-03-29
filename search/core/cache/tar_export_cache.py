@@ -39,7 +39,7 @@ class AbstractTarExportCache(TarExportCache):
 
     def get_data(self, search_context: SearchContext) -> Optional[models.SearchFile]:
         search_file: models.SearchFile = \
-            models.SearchFile.query.filter_by(search_md5=search_context.search_exp_md5, use=constant.EXPORT)\
+            models.SearchFile.query.filter_by(search_md5=search_context.search_md5.search_md5, use=constant.EXPORT)\
             .order_by(desc(models.SearchFile.create_time))\
             .first()
         return search_file
@@ -51,7 +51,7 @@ class AbstractTarExportCache(TarExportCache):
                 return ILLEGAL_CHARACTERS_RE.sub(" ", val)
             return val
 
-        columns: List[str] = simplejson.loads(search_context.search_exp).get(constant.SEARCH_FIELD)
+        columns: List[str] = simplejson.loads(search_context.search_md5.search_md5).get(constant.SEARCH_FIELD)
         new_data_df = pd.DataFrame()
         for column in columns:
             if column in data_df.columns:
@@ -66,7 +66,7 @@ class AbstractTarExportCache(TarExportCache):
         data_df = new_data_df
         tar_dir: str = file_dir + os.sep + str(uuid.uuid4())
         os.makedirs(tar_dir)
-        size = search_context.search_object.export_single_size
+        size = search_context.search.export_single_size
         file_path_list: List[str] = []
         try:
             for index in range(0, self.count(data_df=data_df, size=size)):
@@ -77,7 +77,7 @@ class AbstractTarExportCache(TarExportCache):
                               index=index,
                               tar_dir=tar_dir,
                               file_path_list=file_path_list)
-            tar_path = f"{file_dir}{os.path.sep}{search_context.search_object.display}.tar.gz"
+            tar_path = f"{file_dir}{os.path.sep}{search_context.search.display}.tar.gz"
             with tarfile.open(name=tar_path, mode="w:gz", encoding='utf-8') as tar:
                 for file_path in file_path_list:
                     d, f = os.path.split(file_path)
@@ -87,10 +87,10 @@ class AbstractTarExportCache(TarExportCache):
             search_file = models.SearchFile()
             search_file.path = tar_path
             search_file.file_name = f
-            search_file.search_md5 = search_context.search_exp_md5
+            search_file.search_md5 = search_context.search_md5.search_md5
             search_file.use = constant.FileUse.EXPORT
             search_file.size = os.path.getsize(tar_path)
-            search_file.search_id = search_context.search_object.id
+            search_file.search_id = search_context.search.id
             db.session.add(search_file)
             db.session.commit()
         finally:
@@ -117,8 +117,8 @@ class DefaultTarExportCache(AbstractTarExportCache):
 
     def exec(self, chunk_df: pd.DataFrame, search_context: SearchContext, index: int, tar_dir: str,
              file_path_list: List[str]):
-        file_path = f"{tar_dir}{os.path.sep}{search_context.search_object.name}_{index}"
-        if constant.FileType.CSV == search_context.search_object.export_file_type:
+        file_path = f"{tar_dir}{os.path.sep}{search_context.search.name}_{index}"
+        if constant.FileType.CSV == search_context.search.export_file_type:
             file_path = file_path + ".csv"
             chunk_df.to_csv(file_path, sep="`", index=False, encoding="utf_8_sig")
         else:
