@@ -13,16 +13,19 @@ from search.entity import MessageCode
 @dataclass
 class BaseDataClass:
 
+    _exclude = []
+
     def __new__(cls, *args, **kwargs):
-        field_list = []
+        _field_list = []
         for field in fields(cls):
-            field_list.append(field.name)
-        cls.field_list = field_list
+            if field.name not in cls._exclude:
+                _field_list.append(field.name)
+        cls._field_list = _field_list
         return super(BaseDataClass, cls).__new__(cls)
 
     def to_dict(self):
         d = {}
-        for field_name in self.field_list:
+        for field_name in self._field_list:
             o = self.__dict__[field_name]
             if hasattr(o, "to_dict"):
                 d[field_name] = o.to_dict()

@@ -8,7 +8,7 @@ __author__ = 'fyq'
 import re
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Optional, Union
 
 import sqlparse
 import sqlparse.keywords
@@ -62,12 +62,13 @@ class SearchSqlParser(ISearchSqlParser):
     def parse(self, sql: str) -> SqlParserInfo:
 
         select_tokens = []
-        field_token = None
+        field_token: Union[IdentifierList, Identifier, None] = None
         from_tokens = []
         where_token = None
         other_tokens = []
         select_pos = None
         from_pos = None
+        filed_pos = None
 
         sql = sqlparse.format(sql, keyword_case="upper", strip_whitespace=True)
         statement: Statement = sqlparse.parse(sql)[0]
@@ -78,15 +79,16 @@ class SearchSqlParser(ISearchSqlParser):
                 raise MustNotHaveSubSelectException
 
         info = SqlParserInfo()
-        info.expression = sql
+        info.expression = sqlparse.format(sql, keyword_case="upper", strip_whitespace=True, reindent=True)
 
         for token_index, token in enumerate(all_tokens):
-            if token.ttype is DML and token.value.upper() == "SELECT":
+            if token.ttype is DML and token.value.upper() == "SELECT" and select_pos is None:
                 select_pos = token_index
-            elif isinstance(token, IdentifierList):
+            elif isinstance(token, (Identifier, IdentifierList)) and filed_pos is None:
                 select_tokens = all_tokens[select_pos + 1: token_index]
                 field_token = token
-            elif token.ttype is Keyword and token.value.upper() == "FROM":
+                filed_pos = token_index
+            elif token.ttype is Keyword and token.value.upper() == "FROM" and from_pos is None:
                 from_pos = token_index
             elif token.is_group and isinstance(token, Where):
                 from_tokens = all_tokens[from_pos + 1: token_index]
@@ -114,12 +116,16 @@ class SearchSqlParser(ISearchSqlParser):
         return exp
 
     @classmethod
-    def _parse_fields(cls, field_token: IdentifierList):
+    def _parse_fields(cls, field_token: Union[IdentifierList, Identifier, None]):
         field_list: List[Tuple[str, str]] = []
-        for token in field_token.tokens:
-            if isinstance(token, Identifier):
-                value_list = token.value.split()
-                field_list.append((" ".join(value_list[0: -1]), value_list[-1]))
+        if isinstance(field_token, IdentifierList):
+            for token in field_token.tokens:
+                if isinstance(token, Identifier):
+                    value_list = token.value.split()
+                    field_list.append((" ".join(value_list[0: -1]), value_list[-1]))
+        elif isinstance(field_token, Identifier):
+            value_list = field_token.value.split()
+            field_list.append((" ".join(value_list[0: -1]), value_list[-1]))
         return field_list
 
     @classmethod

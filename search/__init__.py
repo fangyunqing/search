@@ -13,7 +13,7 @@ from search.database import dm
 from search.entity import CommonResult, MessageCode
 from search.extend import db, migrate, scheduler
 from search.models import SearchDatasource
-from search.views import init_bp, search_bp, ds_bp, config_bp, user_bp
+from search.views import search_bp, config_bp, user_bp, test_bp
 import simplejson
 
 
@@ -26,9 +26,8 @@ def create_app():
     # 初始化
     migrate.init_app(app, db)
     # 注册蓝图
-    app.register_blueprint(init_bp)
     app.register_blueprint(search_bp, url_prefix="/search")
-    app.register_blueprint(ds_bp)
+    app.register_blueprint(test_bp, url_prefix="/test")
     app.register_blueprint(config_bp, url_prefix="/config")
     app.register_blueprint(user_bp, url_prefix="/user")
     # 定时器

@@ -7,6 +7,8 @@ __author__ = 'fyq'
 
 from typing import Union, List, Dict, Any, TypeVar, Callable
 
+import munch
+
 from search.exceptions import SearchUtilException
 
 TypeOrCallable = TypeVar("TypeOrCallable", bound=Union[type, Callable])
@@ -32,3 +34,52 @@ def data2obj(data: Union[Dict[str, Any], List], cls: TypeOrCallable) -> Union[An
     else:
         raise SearchUtilException(error)
 
+
+def data2DictOrList(data: Union[Dict, List]):
+    if isinstance(data, Dict):
+        res = {}
+        for k, v in data.items():
+            if isinstance(v, Dict):
+                res[k] = data2DictOrList(v)
+            elif isinstance(v, List):
+                res[k] = data2DictOrList(v)
+            elif hasattr(v, "to_dict"):
+                res[k] = v.to_dict()
+            else:
+                res[k] = v
+        return res
+    elif isinstance(data, List):
+        res = []
+        for d in data:
+            if isinstance(d, Dict):
+                res.append(data2DictOrList(d))
+            elif isinstance(d, List):
+                res.append(data2DictOrList(d))
+            elif hasattr(d, "to_dict"):
+                res.append(d.to_dict())
+            else:
+                res.append(d)
+        return res
+
+
+def data2M(data: Union[Dict, List]):
+    if isinstance(data, Dict):
+        res = {}
+        for k, v in data.items():
+            if isinstance(v, Dict):
+                res[k] = data2M(v)
+            elif isinstance(v, List):
+                res[k] = data2M(v)
+            else:
+                res[k] = v
+        return munch.Munch(res)
+    elif isinstance(data, List):
+        res = []
+        for d in data:
+            if isinstance(d, Dict):
+                res.append(data2M(d))
+            elif isinstance(d, List):
+                res.append(data2M(d))
+            else:
+                res.append(d)
+        return res

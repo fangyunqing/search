@@ -12,6 +12,7 @@ from typing import List
 from flask import Flask
 
 from search import models, db, constant
+from search.core.decorator import transactional
 from search.core.parser import SearchSqlParser, SqlParserInfo
 from search.exceptions import SearchSqlParseException
 
@@ -29,7 +30,7 @@ class SearchParser(ISearchParser):
     def _find(cls, search_sql_list: List[models.SearchSQL], fields: str, search_field: models.SearchField, order):
         for field in fields.split(","):
             for search_sql_index, search_sql in enumerate(search_sql_list):
-                right_list = [search_sql_field.right for search_sql_field in search_sql.fields]
+                right_list = [search_sql_field.right.split(".")[-1] for search_sql_field in search_sql.fields]
                 if field in right_list:
                     sf = models.SearchFieldGenPath()
                     sf.search_sql_id = search_sql.id
@@ -43,6 +44,7 @@ class SearchParser(ISearchParser):
                         [search_sql_result.right for search_sql_result in search_sql.results]), search_field, order + 1)
                     break
 
+    @transactional
     def parse(self, search_id: int):
 
         search: models.Search = models.Search.query.filter_by(id=search_id).first()
@@ -97,5 +99,4 @@ class SearchParser(ISearchParser):
         for search_field in search_field_list:
             self._find(search_sql_list, search_field.result_fields, search_field, 0)
         search.status = constant.SearchStatus.TEST
-        db.session.commit()
 

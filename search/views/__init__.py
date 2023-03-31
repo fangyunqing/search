@@ -6,6 +6,7 @@
 __author__ = 'fyq'
 
 from .search import search_bp
-from .datasource import ds_bp
+from .test import test_bp
 from .config import config_bp
 from .user import user_bp
+

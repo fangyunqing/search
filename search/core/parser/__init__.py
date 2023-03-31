@@ -6,3 +6,4 @@
 __author__ = 'fyq'
 
 from .sql_parser import SearchSqlParser, SqlParserInfo
+from .parser import SearchParser

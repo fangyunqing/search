@@ -61,3 +61,18 @@ def get_search_field(search_id):
 @config_bp.route(rule="/search/add", methods=["POST"])
 def search_add():
     return search_config.search_add(request.data.decode())
+
+
+@config_bp.route(rule="/search/modify", methods=["POST"])
+def search_modify():
+    return search_config.search_modify(request.data.decode())
+
+
+@config_bp.route(rule="/search/parse/<int:search_id>", methods=["GET"])
+def search_parse(search_id):
+    return search_config.search_parse(search_id)
+
+
+@config_bp.route(rule="/search/info/<int:search_id>")
+def search_info(search_id):
+    return search_config.get_search_info(search_id)

@@ -38,14 +38,14 @@ class RedisSearchCache(metaclass=ABCMeta):
 class AbstractRedisSearchCache(RedisSearchCache):
 
     def get_data(self, search_context: SearchContext, page_number: int) -> List[Any]:
-        redis_key: str = f"{search_context.search_exp_md5}_{page_number}"
+        redis_key: str = f"{search_context.search_key}_{page_number}"
         data = None
         page = None
         value: bytes = redis.Redis(connection_pool=redis_pool).get(name=redis_key)
         if value:
             data = value.decode()
             data = json.loads(data)
-        redis_key: str = f"{search_context.search_exp_md5}_{constant.TOTAL}"
+        redis_key: str = f"{search_context.search_key}_{constant.TOTAL}"
         value: bytes = redis.Redis(connection_pool=redis_pool).get(name=redis_key)
         if value:
             page = value.decode()
@@ -70,7 +70,7 @@ class AbstractRedisSearchCache(RedisSearchCache):
                 page_begin += 1
 
         r = redis.Redis(connection_pool=redis_pool)
-        value: bytes = r.get(name=f"{search_context.search_md5.search_md5}_{constant.CSV}")
+        value: bytes = r.get(name=f"{search_context.search_key}_{constant.CSV}")
         if value:
             page = value.decode()
             page = json.loads(page)
@@ -86,7 +86,7 @@ class AbstractRedisSearchCache(RedisSearchCache):
                 page.pages = "???"
                 page = page.to_dict()
 
-        r.setex(name=f"{search_context.search_md5.search_md5}_{constant.TOTAL}",
+        r.setex(name=f"{search_context.search_key}_{constant.TOTAL}",
                 value=json.dumps(page),
                 time=search_context.search.redis_cache_time)
 
@@ -110,7 +110,7 @@ class DefaultRedisSearchCache(AbstractRedisSearchCache):
 
     def exec(self, r: Redis, search_context: SearchContext, chunk_df: pd.DataFrame, page_number: int):
         data = json.dumps(chunk_df.to_dict("records"), cls=SearchEncoder, ignore_nan=True)
-        redis_key: str = f"{search_context.search_md5.search_md5}_{page_number}"
+        redis_key: str = f"{search_context.search_key}_{page_number}"
         r.setex(name=redis_key,
                 time=search_context.search.redis_cache_time,
                 value=data)

@@ -54,3 +54,5 @@ def export_progress():
 @search_bp.route(rule="/search_progress", methods=["POST"])
 def search_progress():
     return current_search.search_progress(request.data.decode())
+
+

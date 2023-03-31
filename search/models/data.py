@@ -49,7 +49,7 @@ class Search(db.Model, SerializerMixin):
     # 展示名称
     display = Column(String(255), nullable=False)
     # 是否可用
-    usable = Column(Integer, default=1)
+    usable = Column(String(1), default=1)
     # 页大小
     page_size = Column(Integer, default=50)
     # 查询的时候 先查询多少条
@@ -72,13 +72,15 @@ class Search(db.Model, SerializerMixin):
     error = Column(String(1024))
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
+    # 版本
+    version = Column(Integer, default=1)
 
 
 class SearchCondition(db.Model, SerializerMixin):
     __tablename__ = "search_condition"
     serialize_only = ("id", "name", "display", "datatype", "order", "create_time")
     __table_args__ = (
-        db.UniqueConstraint('id', 'name', name='uix_search_condition_id_name'),
+        db.UniqueConstraint('search_id', 'name', name='uix_search_condition_id_name'),
     )
     # 主键
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -101,7 +103,7 @@ class SearchField(db.Model, SerializerMixin):
     serialize_only = ("id", "name", "display", "datatype", "rule", "result_fields", "order",
                       "visible", "create_time")
     __table_args__ = (
-        db.UniqueConstraint('id', 'name', name='uix_search_field_id_name'),
+        db.UniqueConstraint('search_id', 'name', name='uix_search_field_id_name'),
     )
     # 主键
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -122,7 +124,7 @@ class SearchField(db.Model, SerializerMixin):
     # 搜索的ID
     search_id = Column(Integer, ForeignKey("search.id"))
     # 生成路径
-    search_field_gen_paths = db.relationship("SearchFieldGenPath", lazy='dynamic', backref="search_field")
+    search_field_gen_paths = db.relationship("SearchFieldGenPath",  backref="search_field", passive_deletes=True)
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
 
@@ -136,7 +138,7 @@ class SearchSQLField(db.Model, SerializerMixin):
     # 右侧
     right = Column(String(1024))
     # 搜索SQL的ID
-    search_sql_id = Column(Integer, ForeignKey("search_sql.id"))
+    search_sql_id = Column(Integer, ForeignKey("search_sql.id", ondelete='CASCADE'))
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
 
@@ -144,9 +146,9 @@ class SearchSQLField(db.Model, SerializerMixin):
 class SearchSQL(db.Model, SerializerMixin):
     __tablename__ = "search_sql"
     serialize_only = ("id", "name", "display", "expression", "select_expression", "from_expression",
-                      "where_expression", "other_expression", "order", "create_time")
+                      "where_expression", "other_expression", "order", "create_time", "how")
     __table_args__ = (
-        db.UniqueConstraint('id', 'name', name='uix_search_sql_id_name'),
+        db.UniqueConstraint('search_id', 'name', name='uix_search_sql_id_name'),
     )
     # 主键
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -156,6 +158,8 @@ class SearchSQL(db.Model, SerializerMixin):
     display = Column(String(255), nullable=False)
     # expression
     expression = Column(Text, nullable=False)
+    # 连接方式
+    how = Column(Text, nullable=False)
     # select
     select_expression = Column(Text, nullable=True)
     # from
@@ -167,11 +171,15 @@ class SearchSQL(db.Model, SerializerMixin):
     # 排序号
     order = Column(Integer, nullable=False)
     # 字段
-    fields = db.relationship("SearchSQLField", lazy='dynamic', backref="search_sql")
+    fields = db.relationship("SearchSQLField", backref="search_sql",
+                             passive_deletes=True)
     # 结果字段
-    results = db.relationship("SearchSqlResult", lazy='dynamic', backref="search_sql")
+    results = db.relationship("SearchSqlResult", backref="search_sql",
+                              passive_deletes=True)
     # 条件字段
-    conditions = db.relationship("SearchSqlCondition", lazy='dynamic', backref="search_sql")
+    conditions = db.relationship("SearchSqlCondition",
+                                 backref="search_sql",
+                                 passive_deletes=True)
     # 搜索的ID
     search_id = Column(Integer, ForeignKey("search.id"))
     # 生成时间
@@ -185,7 +193,7 @@ class SearchFieldGenPath(db.Model, SerializerMixin):
     # 搜索字段的ID
     search_field_id = Column(Integer, ForeignKey("search_field.id"))
     # 搜索SQL的ID
-    search_sql_id = Column(Integer, ForeignKey("search_sql.id"))
+    search_sql_id = Column(Integer, ForeignKey("search_sql.id", ondelete="CASCADE"))
     # 依赖的字段
     depend_field = Column(String(1024), nullable=False)
     # 排序号
@@ -199,7 +207,7 @@ class SearchSqlResult(db.Model, SerializerMixin):
     # 主键
     id = Column(Integer, primary_key=True, autoincrement=True)
     # 搜索SQL的ID
-    search_sql_id = Column(Integer, ForeignKey("search_sql.id"))
+    search_sql_id = Column(Integer, ForeignKey("search_sql.id", ondelete='CASCADE'))
     # 左边
     left = Column(String(1024))
     # 右边
@@ -215,7 +223,7 @@ class SearchSqlCondition(db.Model, SerializerMixin):
     # 主键
     id = Column(Integer, primary_key=True, autoincrement=True)
     # 搜索SQL的ID
-    search_sql_id = Column(Integer, ForeignKey("search_sql.id"))
+    search_sql_id = Column(Integer, ForeignKey("search_sql.id", ondelete='CASCADE'))
     # 左边
     left = Column(String(1024))
     # 右边

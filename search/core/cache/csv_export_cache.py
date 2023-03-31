@@ -77,7 +77,7 @@ class DefaultCSVExportCache(AbstractCSVExportCache):
         data_df.to_csv(file_path, sep="`", index=False)
         d, f = os.path.split(file_path)
         search_file.path = file_path
-        search_file.search_md5 = search_context.search_md5.search_md5
+        search_file.search_md5 = search_context.search_key
         search_file.use = constant.FileUse.SEARCH
         search_file.size = os.path.getsize(file_path)
         search_file.file_name = f
@@ -91,6 +91,6 @@ class DefaultCSVExportCache(AbstractCSVExportCache):
         page.pages = str(math.ceil(len(data_df) / search_context.search.page_size))
 
         r = redis.Redis(connection_pool=redis_pool)
-        r.setex(name=f"{search_context.search_md5.search_md5}_{constant.CSV}",
+        r.setex(name=f"{search_context.search_key}_{constant.CSV}",
                 value=json.dumps(page.to_dict()),
                 time=search_context.search.redis_cache_time)

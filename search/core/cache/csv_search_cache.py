@@ -39,7 +39,7 @@ class AbstractCSVSearchCache(CSVSearchCache):
 
     def get_data(self, search_context: SearchContext, page_number: int) -> List[Any]:
         search_file: models.SearchFile = \
-            models.SearchFile.query.filter_by(search_md5=search_context.search_md5.search_md5, use=constant.SEARCH) \
+            models.SearchFile.query.filter_by(search_md5=search_context.search_key, use=constant.SEARCH) \
             .order_by(desc(models.SearchFile.create_time)) \
             .first()
         data = None
@@ -95,7 +95,7 @@ class DefaultCSVSearchCache(AbstractCSVSearchCache):
         data_df.to_csv(file_path, sep="`", index=False)
         d, f = os.path.split(file_path)
         search_file.path = file_path
-        search_file.search_md5 = search_context.search_md5.search_md5
+        search_file.search_md5 = search_context.search_key
         search_file.use = constant.SEARCH
         search_file.size = os.path.getsize(file_path)
         search_file.file_name = f
@@ -110,9 +110,9 @@ class DefaultCSVSearchCache(AbstractCSVSearchCache):
         page.pages = str(math.ceil(len(data_df) / search_context.search.page_size))
 
         r = redis.Redis(connection_pool=redis_pool)
-        r.set(name=f"{search_context.search_md5.search_md5}_{constant.CSV}",
+        r.set(name=f"{search_context.search_key}_{constant.CSV}",
               value=json.dumps(page.to_dict()))
 
-        r.setex(name=f"{search_context.search_md5.search_md5}_{constant.TOTAL}",
+        r.setex(name=f"{search_context.search_key}_{constant.TOTAL}",
                 value=json.dumps(page.to_dict()),
                 time=search_context.search.redis_cache_time)

@@ -18,6 +18,8 @@ import pandas as pd
 from search.core.progress import Progress
 from search.core.search_context import SearchContext, SearchBuffer
 
+from pyext import RuntimeModule
+
 
 class DBSearchCache(metaclass=ABCMeta):
 
@@ -43,16 +45,23 @@ class AbstractDBSearchCache(DBSearchCache):
                         select_expression = f"{select_expression} top {search_context.search.top}"
 
                 where_expression = search_buffer.where_expression
-                where_expression = where_expression.format(*[get_ident() for i in range(0, search_buffer.where_expression.count("{}"))])
+                where_expression = where_expression.\
+                    format(*[get_ident() for i in range(0, search_buffer.where_expression.count("{}"))])
+                sql_list.append("select")
                 sql_list.append(select_expression)
                 sql_list.append(",".join(search_buffer.field_list))
+                sql_list.append("from")
                 sql_list.append(search_buffer.search_sql.from_expression)
+                sql_list.append("where")
                 sql_list.append(where_expression)
                 sql_list.append(search_buffer.search_sql.other_expression)
 
+                tmp_sql_list.append("select")
                 tmp_sql_list.append(select_expression)
                 tmp_sql_list.append(",".join(search_buffer.tmp_fields) + f" into {tmp_tablename}")
+                tmp_sql_list.append("from")
                 tmp_sql_list.append(search_buffer.search_sql.from_expression)
+                tmp_sql_list.append("where")
                 tmp_sql_list.append(where_expression)
                 tmp_sql_list.append(search_buffer.search_sql.other_expression)
 
@@ -77,17 +86,40 @@ class AbstractDBSearchCache(DBSearchCache):
                 else:
                     if len(search_df_list) > 1:
                         new_df = pd.concat(search_df_list)
-                        data_df = pd.merge(left=data_df, right=new_df, how="left",
+                        data_df = pd.merge(left=data_df, right=new_df, how=search_buffer.search_sql.how,
                                            left_on=search_buffer.join_fields, right_on=search_buffer.join_fields)
                     else:
                         new_df = search_df_list[0]
-                        data_df = pd.merge(left=data_df, right=new_df, how="left",
+                        data_df = pd.merge(left=data_df, right=new_df, how=search_buffer.search_sql.how,
                                            left_on=search_buffer.join_fields, right_on=search_buffer.join_fields)
 
         finally:
             [conn.close() for conn in conn_list]
 
-        return data_df
+        new_df = pd.DataFrame()
+        for field in search_context.search_md5.search_original_field_list:
+            for search_field in search_context.search_field_list:
+                if field != search_field.name:
+                    continue
+                try:
+                    if search_field.rule.startswith(("def", "import", "from")):
+                        md = RuntimeModule.from_string('a', search_field.rule)
+                        find = False
+                        for v in md.__dict__.values():
+                            if callable(v):
+                                new_df[field] = data_df.apply(v, axis=1)
+                                find = True
+                                break
+                        if not find:
+                            new_df[field] = None
+                            logger.warning(f"{search_context.search_md5.search_name}-{field}-rule未发现可执行函数")
+                    else:
+                        new_df[field] = data_df[search_field.rule]
+                except Exception as e:
+                    new_df[field] = ""
+                    logger.exception(e)
+
+        return new_df
 
     @abstractmethod
     def count(self, conn_list: List, search_context: SearchContext, top: bool):

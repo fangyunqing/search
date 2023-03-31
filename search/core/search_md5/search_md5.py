@@ -14,9 +14,11 @@ from search import constant
 
 import simplejson
 
+from search.entity.common_result import BaseDataClass
+
 
 @dataclass
-class SearchMd5:
+class SearchMd5(BaseDataClass):
     search: Dict = None
 
     search_name: str = None

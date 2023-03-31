@@ -39,7 +39,7 @@ class AbstractTarExportCache(TarExportCache):
 
     def get_data(self, search_context: SearchContext) -> Optional[models.SearchFile]:
         search_file: models.SearchFile = \
-            models.SearchFile.query.filter_by(search_md5=search_context.search_md5.search_md5, use=constant.EXPORT)\
+            models.SearchFile.query.filter_by(search_md5=search_context.search_key, use=constant.EXPORT)\
             .order_by(desc(models.SearchFile.create_time))\
             .first()
         return search_file
@@ -51,7 +51,7 @@ class AbstractTarExportCache(TarExportCache):
                 return ILLEGAL_CHARACTERS_RE.sub(" ", val)
             return val
 
-        columns: List[str] = simplejson.loads(search_context.search_md5.search_md5).get(constant.SEARCH_FIELD)
+        columns: List[str] = simplejson.loads(search_context.search_key).get(constant.SEARCH_FIELD)
         new_data_df = pd.DataFrame()
         for column in columns:
             if column in data_df.columns:
@@ -87,7 +87,7 @@ class AbstractTarExportCache(TarExportCache):
             search_file = models.SearchFile()
             search_file.path = tar_path
             search_file.file_name = f
-            search_file.search_md5 = search_context.search_md5.search_md5
+            search_file.search_md5 = search_context.search_key
             search_file.use = constant.FileUse.EXPORT
             search_file.size = os.path.getsize(tar_path)
             search_file.search_id = search_context.search.id

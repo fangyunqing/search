@@ -82,7 +82,7 @@ class Search(ISearch):
         param = data.get(constant.PARAM)
         page_number = param.get(constant.PAGE_NUMBER)
         search_md5: SearchMd5 = create_search_md5(search_node)
-        search_context: SearchContext = scm.get_search_context(search_node, search_md5)
+        search_context: SearchContext = scm.get_search_context(search_md5)
         data, page = self._redis_search_cache.get_data(search_context=search_context, page_number=page_number)
         if data is None:
             data, page = self._csv_search_cache.get_data(search_context=search_context, page_number=page_number)
@@ -100,7 +100,7 @@ class Search(ISearch):
             if r.setnx(name=f"{search_md5}_{constant.SEARCH}", value=1):
                 try:
                     if search_context.search_future is None or search_context.search_future.done():
-                        progress_manager.set_new_progress_step(constant.SEARCH, search_context.search.search_md5)
+                        progress_manager.set_new_progress_step(constant.SEARCH, search_context.search_key)
                         search_context.search_future = thread_pool.submit(self._search_thread_func,
                                                                           current_app._get_current_object(),
                                                                           search_context)
@@ -128,7 +128,7 @@ class Search(ISearch):
         """
         m = json.loads(data)
         search_md5: SearchMd5 = create_search_md5(m)
-        search_context: SearchContext = scm.get_search_context(m, search_md5)
+        search_context: SearchContext = scm.get_search_context(search_md5)
         search_file = self._tar_export_cache.get_data(search_context=search_context)
         if search_file and os.path.isfile(search_file.path):
             return make_response(send_file(path_or_file=search_file.path,
@@ -138,7 +138,7 @@ class Search(ISearch):
             if r.setnx(name=f"{search_md5}_{constant.EXPORT}", value=1):
                 try:
                     if search_context.export_future is None or search_context.export_future.done():
-                        progress_manager.set_new_progress_step(constant.EXPORT, search_context.search_md5.search_md5)
+                        progress_manager.set_new_progress_step(constant.EXPORT, search_context.search_key)
                         search_context.export_future = thread_pool.submit(self._export_thread_func,
                                                                           current_app._get_current_object(),
                                                                           search_context)
@@ -152,7 +152,7 @@ class Search(ISearch):
     def _search_thread_func(self, app: Flask, search_context: SearchContext):
         try:
             with app.app_context():
-                with search_local(key=constant.SEARCH_MD5, value=search_context.search_md5.search_md5):
+                with search_local(key=constant.SEARCH_MD5, value=search_context.search_key):
                     data_df = self._db_search_cache.get_data(search_context=search_context,
                                                              top=False)
                     if len(data_df) > search_context.search.want_csv:
@@ -171,7 +171,7 @@ class Search(ISearch):
     def _export_thread_func(self, app: Flask, search_context: SearchContext):
         try:
             with app.app_context():
-                with search_local(key=constant.SEARCH_MD5, value=search_context.search_md5.search_md5):
+                with search_local(key=constant.SEARCH_MD5, value=search_context.search_key):
                     data_df = self._csv_export_cache.get_data(search_context=search_context)
                     if data_df is None:
                         data_df = self._db_export_cache.get_data(search_context=search_context,

@@ -6,16 +6,14 @@
 __author__ = 'fyq'
 
 from abc import ABCMeta, abstractmethod
-from typing import List
+
+import munch
+import simplejson
 
 from search import models, db, dm
 from search.core.decorator import transactional
 from search.entity import CommonResult, MessageCode
-import munch
-
-from search.exceptions import SearchException
 from search.util import convert
-import simplejson
 
 
 class IDatasourceConfig(metaclass=ABCMeta):
@@ -49,7 +47,6 @@ class DataSourceConfig(IDatasourceConfig):
         search_datasource: models.SearchDatasource = convert.data2obj(m, models.SearchDatasource)
         db.session.add(search_datasource)
         db.session.flush()
-        self.duplicate_major()
         dm.register(search_datasource)
         return CommonResult.success()
 
@@ -63,7 +60,6 @@ class DataSourceConfig(IDatasourceConfig):
         if search_datasource:
             search_datasource.usable = '1'
             db.session.flush()
-            self.duplicate_major()
             dm.register(search_datasource)
             return CommonResult.success()
         else:
@@ -75,7 +71,6 @@ class DataSourceConfig(IDatasourceConfig):
         if search_datasource:
             search_datasource.usable = '0'
             db.session.flush()
-            self.duplicate_major()
             dm.unregister(search_datasource.name)
             return CommonResult.success()
         else:
@@ -86,17 +81,8 @@ class DataSourceConfig(IDatasourceConfig):
         m = munch.Munch(simplejson.loads(data))
         models.SearchDatasource.query.filter_by(id=m.id).update(m)
         db.session.flush()
-        self.duplicate_major()
         dm.register(models.SearchDatasource.query.filter_by(id=m.id).first())
         return CommonResult.success()
-
-    @staticmethod
-    def duplicate_major():
-        search_datasource_list: List[models.SearchDatasource] = \
-            models.SearchDatasource.query.filter_by(usable="1").all()
-        s = [ds.major for ds in search_datasource_list if ds.major == "1"]
-        if len(s) > 1:
-            raise SearchException("可用状态下主数据库只能有一个")
 
 
 datasource_config = DataSourceConfig()
