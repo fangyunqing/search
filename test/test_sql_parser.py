@@ -8,6 +8,7 @@ __author__ = 'fyq'
 import unittest
 from search.core.parser.sql_parser import SearchSqlParser
 
+
 class TestSqlParser(unittest.TestCase):
 
     def test_sql_parser(self):
@@ -17,4 +18,3 @@ class TestSqlParser(unittest.TestCase):
               "AND sStoreInType like '%车间生产入库%' limit 100"
         s = SearchSqlParser()
         print(s.parse(sql))
-

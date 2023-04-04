@@ -99,9 +99,7 @@ class AbstractRedisSearchCache(RedisSearchCache):
         pass
 
 
-@Progress(prefix="search", suffix="redis")
 class DefaultRedisSearchCache(AbstractRedisSearchCache):
-
     execs = ["exec"]
 
     def count(self, search_context: SearchContext, data_df: pd.DataFrame):

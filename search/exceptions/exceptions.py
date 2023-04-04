@@ -18,9 +18,17 @@ class SearchUtilException(SearchException):
     pass
 
 
-class SearchSqlParseException(SearchException):
+class SearchParseException(SearchException):
+    pass
+
+
+class SearchSqlParseException(SearchParseException):
     pass
 
 
 class MustNotHaveSubSelectException(SearchSqlParseException):
+    pass
+
+
+class FileNotFindSearchException(SearchException):
     pass

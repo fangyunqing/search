@@ -6,8 +6,9 @@
 __author__ = 'fyq'
 
 from flask import Blueprint, request
+from loguru import logger
 
-from search import models
+from search import models, dm
 from search.core import current_search
 
 from search.entity import CommonResult
@@ -25,9 +26,42 @@ def condition():
     search_name = request.args.get("searchName")
     search_result = models.Search.query.filter_by(name=search_name).first()
     search_condition_list = \
-        models.SearchCondition.query.filter_by(search_id=search_result.id).filter_by(usable=1).order_by(
+        models.SearchCondition.query.filter_by(search_id=search_result.id).order_by(
             models.SearchCondition.order).all()
 
+    conn = dm.get_main_connection()
+    if conn:
+        cur = conn.cursor()
+        try:
+            for search_condition in search_condition_list:
+                if search_condition.datatype == "list" and \
+                        search_condition.list_values and \
+                        len(search_condition.list_values) > 0:
+                    try:
+                        cur.execute(search_condition.list_values)
+                        search_condition.list_values = []
+                        datas = cur.fetchall()
+                        for data in datas:
+                            key = None
+                            value = None
+                            if len(data) > 0:
+                                key = data[0]
+                            if len(data) > 1:
+                                value = str(data[1])
+                            if key and value:
+                                search_condition.list_values.append({
+                                    "key": key,
+                                    "value": value
+                                })
+                    except Exception as e:
+                        logger.exception(e)
+        finally:
+            cur.close()
+            conn.close()
+    else:
+        for search_condition in search_condition_list:
+            if search_condition.datatype == "list":
+                search_condition.list_values = []
     return CommonResult.success(data=[s.to_dict() for s in search_condition_list])
 
 
@@ -36,7 +70,7 @@ def field():
     search_name = request.args.get("searchName")
     search_result = models.Search.query.filter_by(name=search_name).first()
     search_field_list = \
-        models.SearchField.query.filter_by(search_id=search_result.id).filter_by(usable=1).order_by(
+        models.SearchField.query.filter_by(search_id=search_result.id).order_by(
             models.SearchField.order).all()
     return CommonResult.success(data=[s.to_dict() for s in search_field_list])
 
@@ -54,5 +88,3 @@ def export_progress():
 @search_bp.route(rule="/search_progress", methods=["POST"])
 def search_progress():
     return current_search.search_progress(request.data.decode())
-
-

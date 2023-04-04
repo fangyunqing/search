@@ -51,9 +51,8 @@ class AbstractTarExportCache(TarExportCache):
                 return ILLEGAL_CHARACTERS_RE.sub(" ", val)
             return val
 
-        columns: List[str] = simplejson.loads(search_context.search_key).get(constant.SEARCH_FIELD)
         new_data_df = pd.DataFrame()
-        for column in columns:
+        for column in search_context.search_md5.search_original_field_list:
             if column in data_df.columns:
                 for search_field in search_context.search_field_list:
                     if search_field.name == column:

@@ -9,6 +9,7 @@ from abc import ABCMeta, abstractmethod
 from threading import get_ident
 from typing import Optional, List, Any
 
+import munch
 from loguru import logger
 
 from search import dm
@@ -52,8 +53,9 @@ class AbstractDBSearchCache(DBSearchCache):
                 sql_list.append(",".join(search_buffer.field_list))
                 sql_list.append("from")
                 sql_list.append(search_buffer.search_sql.from_expression)
-                sql_list.append("where")
-                sql_list.append(where_expression)
+                if len(where_expression) > 0:
+                    sql_list.append("where")
+                    sql_list.append(where_expression)
                 sql_list.append(search_buffer.search_sql.other_expression)
 
                 tmp_sql_list.append("select")
@@ -61,8 +63,9 @@ class AbstractDBSearchCache(DBSearchCache):
                 tmp_sql_list.append(",".join(search_buffer.tmp_fields) + f" into {tmp_tablename}")
                 tmp_sql_list.append("from")
                 tmp_sql_list.append(search_buffer.search_sql.from_expression)
-                tmp_sql_list.append("where")
-                tmp_sql_list.append(where_expression)
+                if len(where_expression) > 0:
+                    tmp_sql_list.append("where")
+                    tmp_sql_list.append(where_expression)
                 tmp_sql_list.append(search_buffer.search_sql.other_expression)
 
                 sql = " ".join(sql_list)
@@ -126,7 +129,7 @@ class AbstractDBSearchCache(DBSearchCache):
         pass
 
     @abstractmethod
-    def exec(self, conn, search_buffer: SearchBuffer, sql: str, tmp_sql: str) -> Any:
+    def exec(self, conn, search_buffer: munch.Munch, sql: str, tmp_sql: str) -> Any:
         pass
 
 

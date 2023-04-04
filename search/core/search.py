@@ -13,13 +13,14 @@ import simplejson as json
 from flask import current_app, Flask, make_response, send_file, Response
 from loguru import logger
 
-from search import constant
+from search import constant, models
 from search.core.cache import *
 from search.core.progress import progress_manager
 from search.core.search_context import SearchContext, scm
 from search.core.search_local import search_local
 from search.core.search_md5 import create_search_md5, SearchMd5
 from search.entity import CommonResult, MessageCode
+from search.exceptions import FileNotFindSearchException
 from search.extend import thread_pool, redis_pool
 
 
@@ -85,27 +86,31 @@ class Search(ISearch):
         search_context: SearchContext = scm.get_search_context(search_md5)
         data, page = self._redis_search_cache.get_data(search_context=search_context, page_number=page_number)
         if data is None:
-            data, page = self._csv_search_cache.get_data(search_context=search_context, page_number=page_number)
-        if data is None:
-            if page_number == 1:
-                data_df = self._db_search_cache.get_data(search_context=search_context, top=True)
-                if len(data_df) > 0:
-                    self._redis_search_cache.set_data(search_context=search_context,
-                                                      data_df=data_df,
-                                                      page_begin=1,
-                                                      whole=False)
-                    data, page = self._redis_search_cache.get_data(search_context=search_context,
-                                                                   page_number=page_number)
-            r = redis.Redis(connection_pool=redis_pool)
-            if r.setnx(name=f"{search_md5}_{constant.SEARCH}", value=1):
-                try:
-                    if search_context.search_future is None or search_context.search_future.done():
-                        progress_manager.set_new_progress_step(constant.SEARCH, search_context.search_key)
-                        search_context.search_future = thread_pool.submit(self._search_thread_func,
-                                                                          current_app._get_current_object(),
-                                                                          search_context)
-                finally:
-                    r.delete(f"{search_md5}_{constant.SEARCH}")
+            try:
+                data, page = self._csv_search_cache.get_data(search_context=search_context, page_number=page_number)
+                return CommonResult.fail(code=MessageCode.LAST_PAGE.code, message=MessageCode.LAST_PAGE.desc)
+            except FileNotFindSearchException:
+                if page_number == 1:
+                    data_df = self._db_search_cache.get_data(search_context=search_context, top=True)
+                    if len(data_df) > 0:
+                        self._redis_search_cache.set_data(search_context=search_context,
+                                                          data_df=data_df,
+                                                          page_begin=1,
+                                                          whole=False)
+                        data, page = self._redis_search_cache.get_data(search_context=search_context,
+                                                                       page_number=page_number)
+                    else:
+                        return CommonResult.fail(code=MessageCode.LAST_PAGE.code, message=MessageCode.LAST_PAGE.desc)
+                r = redis.Redis(connection_pool=redis_pool)
+                if r.setnx(name=f"{search_context.search_key}_{constant.SEARCH}", value=1):
+                    try:
+                        if search_context.search_future is None or search_context.search_future.done():
+                            progress_manager.set_new_progress_step(constant.SEARCH, search_context.search_key)
+                            search_context.search_future = thread_pool.submit(self._search_thread_func,
+                                                                              current_app._get_current_object(),
+                                                                              search_context)
+                    finally:
+                        r.delete(f"{search_context.search_key}_{constant.SEARCH}")
         if data is None:
             return CommonResult.fail(code=MessageCode.NOT_READY.code, message=MessageCode.NOT_READY.desc)
         else:
@@ -135,7 +140,7 @@ class Search(ISearch):
                                            as_attachment=True))
         else:
             r = redis.Redis(connection_pool=redis_pool)
-            if r.setnx(name=f"{search_md5}_{constant.EXPORT}", value=1):
+            if r.setnx(name=f"{search_context.search_key}_{constant.EXPORT}", value=1):
                 try:
                     if search_context.export_future is None or search_context.export_future.done():
                         progress_manager.set_new_progress_step(constant.EXPORT, search_context.search_key)
@@ -143,7 +148,7 @@ class Search(ISearch):
                                                                           current_app._get_current_object(),
                                                                           search_context)
                 finally:
-                    r.delete(f"{search_md5}_{constant.EXPORT}")
+                    r.delete(f"{search_context.search_key}_{constant.EXPORT}")
 
             response = make_response()
             response.status_code = 250
@@ -186,7 +191,12 @@ class Search(ISearch):
     def export_progress(self, data: str) -> dict:
         data = json.loads(data)
         search_md5: SearchMd5 = create_search_md5(data)
-        progress_step = progress_manager.find_progress_step(constant.EXPORT, search_md5)
+        search: models.Search = models.Search.query.filter_by(name=search_md5.search_name).first()
+        if not search:
+            return CommonResult.fail(code=MessageCode.NOT_PROGRESS.code,
+                                     message=MessageCode.NOT_PROGRESS.desc)
+        progress_step = \
+            progress_manager.find_progress_step(constant.EXPORT, f"V{search.version}_{search_md5.search_md5}")
         if progress_step:
             return CommonResult.success(data=progress_step.info)
         else:
@@ -196,7 +206,12 @@ class Search(ISearch):
     def search_progress(self, data: str) -> dict:
         data = json.loads(data)
         search_md5: SearchMd5 = create_search_md5(data)
-        progress_step = progress_manager.find_progress_step(constant.SEARCH, search_md5)
+        search: models.Search = models.Search.query.filter_by(name=search_md5.search_name).first()
+        if not search:
+            return CommonResult.fail(code=MessageCode.NOT_PROGRESS.code,
+                                     message=MessageCode.NOT_PROGRESS.desc)
+        progress_step =\
+            progress_manager.find_progress_step(constant.SEARCH, f"V{search.version}_{search_md5.search_md5}")
         if progress_step:
             return CommonResult.success(data=progress_step.info)
         else:

@@ -12,6 +12,6 @@ class RedisKeySuffix:
 
     SEARCH_CONTEXT = "context_174aeb1d-0154-0617-83c1-f87b349481b2"
 
-    SEARCH_CONTEXT_CONDITION = "condition_174aeb1d-0154-0617-83c1-f87b349481b2"
+    SEARCH_CONTEXT_EMPTY = "context_empty_174aeb1d-0154-0617-83c1-f87b349481b2"
 
-    SEARCH_CONTEXT_FIELD = "field_174aeb1d-0154-0617-83c1-f87b349481b2"
+    ALL_DATA = "all_data"

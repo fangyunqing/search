@@ -10,8 +10,10 @@ import os
 import uuid
 from abc import ABCMeta, abstractmethod
 from typing import List, Any
+
 import pandas as pd
 import redis
+import simplejson as json
 from sqlalchemy import desc
 
 from search import models, constant, db
@@ -19,9 +21,8 @@ from search.core.cache import DefaultRedisSearchCache
 from search.core.page import Page
 from search.core.progress import Progress
 from search.core.search_context import SearchContext
+from search.exceptions import FileNotFindSearchException
 from search.extend import redis_pool
-
-import simplejson as json
 
 
 class CSVSearchCache(metaclass=ABCMeta):
@@ -61,7 +62,8 @@ class AbstractCSVSearchCache(CSVSearchCache):
             data, page = d_redis_search_cache.get_data(search_context=search_context,
                                                        page_number=page_number)
             page["number"] = str(page_number)
-
+        else:
+            raise FileNotFindSearchException
         return [data, page]
 
     def set_data(self, search_context: SearchContext, data_df: pd.DataFrame, file_dir: str):
@@ -82,7 +84,6 @@ class AbstractCSVSearchCache(CSVSearchCache):
         pass
 
 
-@Progress(prefix="search", suffix="csv")
 class DefaultCSVSearchCache(AbstractCSVSearchCache):
     execs = ["exec", "exec_page"]
 

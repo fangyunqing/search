@@ -150,5 +150,9 @@ class DataBaseManage:
     def get_connections(self) -> List:
         return [self._pools[ds.name].connection for ds in reversed(self._datasource_list)]
 
+    def get_main_connection(self):
+        if len(self._datasource_list) > 0:
+            return self._pools[self._datasource_list[-1].name].connection
+
 
 dm: DataBaseManage = DataBaseManage()

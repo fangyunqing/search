@@ -74,7 +74,7 @@ class ProgressStep(metaclass=ABCMeta):
 class SearchProgressStep(ProgressStep):
 
     def _steps(self) -> List[Tuple[str, str]]:
-        return [("db", "数据查询中"), ("csv", "数据加载中")]
+        return [("db", "数据查询中")]
 
 
 class ExportProgressStep(ProgressStep):
@@ -117,6 +117,7 @@ class Progress:
                     progress_step = progress_manager.find_progress_step(self._prefix, search_md5)
                     if progress_step:
                         progress_step.error = str(e)
+                raise e
 
         return wrapper
 
@@ -136,6 +137,7 @@ class Progress:
                     progress_step = progress_manager.find_progress_step(self._prefix, search_md5)
                     if progress_step:
                         progress_step.error = str(e)
+                raise e
 
         return wrapper
 

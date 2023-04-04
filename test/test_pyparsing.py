@@ -8,9 +8,15 @@ __author__ = 'fyq'
 
 import unittest
 
+import pyparsing as pp
+
 
 class TestPyparsing(unittest.TestCase):
 
     def test_1(self):
 
-        s = "def a(row): row.a + "
+        s = 'row["row"] + row["cc"]'
+
+
+
+

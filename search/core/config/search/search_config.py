@@ -6,7 +6,7 @@
 __author__ = 'fyq'
 
 from abc import ABCMeta, abstractmethod
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 import munch
 import redis
@@ -21,47 +21,72 @@ from search.core.parser import SearchParser
 from search.core.search_context import scm
 from search.exceptions import SearchException
 from search.extend import thread_pool, redis_pool
+from search.util import repeat
 from search.util.convert import data2obj
 
 
 class ISearchConfig(metaclass=ABCMeta):
 
     @abstractmethod
-    def get_search_info(self, search_id):
+    def info(self, search_id):
         pass
 
     @abstractmethod
-    def get_search(self, data: dict) -> Dict:
+    def search(self, data: dict) -> Dict:
         pass
 
     @abstractmethod
-    def get_search_condition(self, search_id) -> Dict:
+    def condition(self, search_id) -> Dict:
         pass
 
     @abstractmethod
-    def get_search_sql(self, search_id) -> Dict:
+    def sql(self, search_id) -> Dict:
         pass
 
     @abstractmethod
-    def get_search_field(self, search_id) -> Dict:
+    def field(self, search_id) -> Dict:
         pass
 
     @abstractmethod
-    def search_add(self, data: str) -> Dict:
+    def add(self, data: str) -> Dict:
         pass
 
     @abstractmethod
-    def search_modify(self, data: str) -> Dict:
+    def modify(self, data: str) -> Dict:
         pass
 
     @abstractmethod
-    def search_parse(self, search_id) -> Dict:
+    def parse(self, search_id, version) -> Dict:
+        pass
+
+    @abstractmethod
+    def usable(self, search_id, version):
+        pass
+
+    @abstractmethod
+    def disable(self, search_id, version):
         pass
 
 
 class SearchConfig(ISearchConfig):
 
-    def get_search_info(self, search_id) -> Dict:
+    @transactional
+    def usable(self, search_id, version):
+        search: models.Search = models.Search.query.filter_by(id=search_id, version=version).first()
+        if not search:
+            raise SearchException(f"查询[{search.name}]未找到到或者数据版本不正确")
+        search.usable = "1"
+        return CommonResult.success()
+
+    @transactional
+    def disable(self, search_id, version):
+        search: models.Search = models.Search.query.filter_by(id=search_id, version=version).first()
+        if not search:
+            raise SearchException(f"查询[{search.name}]未找到到或者数据版本不正确")
+        search.usable = "0"
+        return CommonResult.success()
+
+    def info(self, search_id) -> Dict:
         search: models.Search = models.Search.query.filter_by(id=search_id).first()
         search_sql_list: List[models.SearchSQL] = \
             models.SearchSQL.query.filter_by(search_id=search_id).order_by(models.SearchSQL.order).all()
@@ -79,42 +104,43 @@ class SearchConfig(ISearchConfig):
 
         return CommonResult.success(data=res)
 
-    def search_parse(self, search_id) -> Dict:
-        search: models.Search = \
-            models.Search.query.filter_by(id=search_id).first()
-        if search.status in [constant.SearchStatus.ERROR, constant.SearchStatus.PARSING]:
+    def parse(self, search_id, version) -> Dict:
+        search: models.Search = models.Search.query.filter_by(id=search_id, version=version).first()
+        if not search:
+            raise SearchException(f"查询[{search.name}]未找到到或者数据版本不正确")
+
+        if search.status in [constant.SearchStatus.PARSING]:
             thread_pool.submit(self._parse_search, search_id, current_app._get_current_object())
             return CommonResult.success()
         else:
             return CommonResult.fail(code=MessageCode.NOT_FOUND.code, message="未找到需要解析的查询")
 
     @transactional
-    def search_modify(self, data: str) -> Dict:
+    def modify(self, data: str) -> Dict:
         m = munch.Munch(simplejson.loads(data))
-        search_id = self._modify(m)
-        scm.delete_search_context(search_id)
+        search_id, search_name = self._modify(m)
+        scm.delete_search_context(search_name)
         thread_pool.submit(self._parse_search, search_id, current_app._get_current_object())
         return CommonResult.success()
 
     @transactional
-    def search_add(self, data: str) -> Dict:
+    def add(self, data: str) -> Dict:
         m = munch.Munch(simplejson.loads(data))
-        search_id = self._add(m)
+        search_id, search_name = self._add(m)
         thread_pool.submit(self._parse_search, search_id, current_app._get_current_object())
-
         return CommonResult.success()
 
-    def get_search_sql(self, search_id) -> Dict:
+    def sql(self, search_id) -> Dict:
         search_sql_list: List[models.SearchSQL] = \
             models.SearchSQL.query.filter_by(search_id=search_id).order_by(models.SearchSQL.order).all()
         return CommonResult.success(data=search_sql_list)
 
-    def get_search_field(self, search_id) -> Dict:
+    def field(self, search_id) -> Dict:
         search_field_list: List[models.SearchField] = \
             models.SearchField.query.filter_by(search_id=search_id).order_by(models.SearchField.order).all()
         return CommonResult.success(data=search_field_list)
 
-    def get_search(self, data: dict) -> Dict:
+    def search(self, data: dict) -> Dict:
         m = munch.Munch(data)
         page_number = int(m.pop("pageNumber", 1))
         page_size = int(m.pop("pageSize", 50))
@@ -128,7 +154,7 @@ class SearchConfig(ISearchConfig):
         p: QueryPagination = s_q.paginate(page=page_number, per_page=page_size, error_out=False)
         return CommonResult.success(data={"list": [s.to_dict() for s in p], "total": p.total})
 
-    def get_search_condition(self, search_id) -> Dict:
+    def condition(self, search_id) -> Dict:
         search_condition_list: List[models.SearchCondition] = \
             models.SearchCondition.query.filter_by(search_id=search_id).order_by(models.SearchCondition.order).all()
         return CommonResult.success(data=search_condition_list)
@@ -138,29 +164,32 @@ class SearchConfig(ISearchConfig):
         with app.app_context():
             search: models.Search = \
                 models.Search.query.filter_by(id=search_id).first()
-            if search.status not in [constant.SearchStatus.PARSING, constant.SearchStatus.ERROR]:
-                return
-            r = redis.Redis(connection_pool=redis_pool)
-            key = f"{search.name}_{constant.RedisKeySuffix.SEARCH_PARSE}"
-            if r.setnx(name=key, value=1):
-                try:
-                    search_parse = SearchParser()
-                    search_parse.parse(search_id)
-                except Exception as e:
-                    search.status = constant.SearchStatus.ERROR
-                    search.error = str(e)
-                    db.session.commit()
-                    logger.exception(e)
-                finally:
-                    r.delete(key)
+            try:
+                search_parse = SearchParser()
+                search_parse.parse(search_id)
+            except Exception as e:
+                search.status = constant.SearchStatus.PARSING_ERROR
+                search.error = str(e)
+                db.session.commit()
+                logger.exception(e)
 
     @classmethod
     @transactional
-    def _add(cls, m: munch.Munch) -> int:
+    def _add(cls, m: munch.Munch) -> Tuple[int, str]:
         search: models.Search = data2obj(m.search, models.Search)
         search_condition_list: List[models.SearchCondition] = data2obj(m.searchCondition, models.SearchCondition)
+        repeat_value = repeat(search_condition_list, "name")
+        if len(repeat_value) > 0:
+            raise SearchException(f"查询[{search.search_name}]条件名称存在重复[{repeat_value}]")
         search_sql_list: List[models.SearchSQL] = data2obj(m.searchSql, models.SearchSQL)
+        repeat_value = repeat(search_sql_list, "name")
+        if len(repeat_value) > 0:
+            raise SearchException(f"查询[{search.search_name}]sql名称存在重复[{repeat_value}]")
         search_field_list: List[models.SearchField] = data2obj(m.searchField, models.SearchField)
+        repeat_value = repeat(search_field_list, "name")
+        if len(repeat_value) > 0:
+            raise SearchException(f"查询[{search.search_name}]字段名称存在重复[{repeat_value}]")
+        search.status = constant.SearchStatus.PARSING
         db.session.add(search)
         db.session.flush()
         for search_condition in search_condition_list:
@@ -173,20 +202,22 @@ class SearchConfig(ISearchConfig):
         db.session.add_all(search_sql_list)
         db.session.add_all(search_field_list)
 
-        return search.id
+        return search.id, search.name
 
     @classmethod
     @transactional
-    def _modify(cls, m: munch.Munch) -> int:
+    def _modify(cls, m: munch.Munch) -> Tuple[int, str]:
         search_id = m.search["id"]
         search_name = m.search["name"]
         version = m.search["version"]
         m.search["status"] = constant.SearchStatus.PARSING
+        m.search["error"] = ""
         search: models.Search = models.Search.query.filter_by(id=search_id, version=version).first()
         if not search:
             raise SearchException(f"查询[{search_name}]未找到到或者数据版本不正确")
+        elif search.status in [constant.SearchStatus.PARSING]:
+            raise SearchException(f"查询[{search_name}]正在解析中不允许修改")
         m.search["version"] = version + 1
-        m.search["status"] = constant.SearchStatus.PARSING
         models.Search.query.filter_by(id=search_id).update(m.search)
         models.SearchCondition.query.filter_by(search_id=search_id).delete()
         models.SearchSQL.query.filter_by(search_id=search_id).delete()
@@ -194,8 +225,17 @@ class SearchConfig(ISearchConfig):
         db.session.flush()
 
         search_condition_list: List[models.SearchCondition] = data2obj(m.searchCondition, models.SearchCondition)
+        repeat_value = repeat(search_condition_list, "name")
+        if len(repeat_value) > 0:
+            raise SearchException(f"查询[{search_name}]条件名称存在重复[{repeat_value}]")
         search_sql_list: List[models.SearchSQL] = data2obj(m.searchSql, models.SearchSQL)
+        repeat_value = repeat(search_sql_list, "name")
+        if len(repeat_value) > 0:
+            raise SearchException(f"查询[{search_name}]sql名称存在重复[{repeat_value}]")
         search_field_list: List[models.SearchField] = data2obj(m.searchField, models.SearchField)
+        repeat_value = repeat(search_field_list, "name")
+        if len(repeat_value) > 0:
+            raise SearchException(f"查询[{search_name}]字段名称存在重复[{repeat_value}]")
 
         for search_condition in search_condition_list:
             search_condition.search_id = search_id
@@ -211,7 +251,7 @@ class SearchConfig(ISearchConfig):
         db.session.add_all(search_sql_list)
         db.session.add_all(search_field_list)
 
-        return search_id
+        return search_id, search_name
 
 
 search_config = SearchConfig()

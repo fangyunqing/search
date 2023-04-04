@@ -10,8 +10,8 @@ class SearchStatus:
 
     PARSING = "parsing"
 
-    ERROR = "error"
-
-    TEST = "test"
+    PARSING_ERROR = "parsing_error"
 
     ACCESS = "access"
+
+

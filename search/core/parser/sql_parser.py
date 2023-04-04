@@ -70,7 +70,7 @@ class SearchSqlParser(ISearchSqlParser):
         from_pos = None
         filed_pos = None
 
-        sql = sqlparse.format(sql, keyword_case="upper", strip_whitespace=True)
+        sql = sqlparse.format(sql, keyword_case="upper", strip_whitespace=True, use_space_around_operators=True)
         statement: Statement = sqlparse.parse(sql)[0]
         all_tokens: List[Token] = statement.tokens
 
@@ -79,7 +79,8 @@ class SearchSqlParser(ISearchSqlParser):
                 raise MustNotHaveSubSelectException
 
         info = SqlParserInfo()
-        info.expression = sqlparse.format(sql, keyword_case="upper", strip_whitespace=True, reindent=True)
+        info.expression = sqlparse.format(sql, keyword_case="upper", strip_whitespace=True, reindent=True,
+                                          use_space_around_operators=True)
 
         for token_index, token in enumerate(all_tokens):
             if token.ttype is DML and token.value.upper() == "SELECT" and select_pos is None:
@@ -101,8 +102,8 @@ class SearchSqlParser(ISearchSqlParser):
         info.from_expression = self._parse_tokens(from_tokens).strip()
 
         if where_token:
-            self._parse_where(where_token.tokens, info.conditions, info.results)
-            info.where_expression = where_token.value.replace("WHERE", "")
+            where_res = self._parse_where(where_token.tokens, info.conditions, info.results)
+            info.where_expression = " ".join(where_res).replace("WHERE", "")
 
         info.other_expression = self._parse_tokens(other_tokens).strip()
 
@@ -131,6 +132,8 @@ class SearchSqlParser(ISearchSqlParser):
     @classmethod
     def _parse_where(cls, where_tokens: List[Token], conditions: List, results: List):
 
+        res = []
+
         def _parse_comparison(comparison: Comparison, datas: List):
             if len(comparison.tokens) == 1:
                 datas.append(("", "", last_token.value))
@@ -144,7 +147,7 @@ class SearchSqlParser(ISearchSqlParser):
 
         for token in where_tokens:
             if isinstance(token, Parenthesis):
-                cls._parse_where(token.tokens, conditions, results)
+                res += cls._parse_where(token.tokens, conditions, results)
             elif isinstance(token, Comparison):
                 if len(token.tokens) > 1:
                     last_token: Token = token.tokens[-1]
@@ -152,6 +155,11 @@ class SearchSqlParser(ISearchSqlParser):
                         _parse_comparison(token, conditions)
                     elif last_token.value.startswith("result."):
                         _parse_comparison(token, results)
+                res.append(token.value)
+            elif not token.is_whitespace:
+                res.append(token.value)
+
+        return res
 
     @classmethod
     def is_sub_select(cls, parsed):

@@ -14,6 +14,7 @@ class MessageCode(enum.Enum):
     NOT_READY = 201, "文件加载中"
     NOT_PROGRESS = 405, "未查询到进度"
     ERROR = 400, "错误"
+    LAST_PAGE = 406, "最后一页"
 
     def __init__(self, code, desc):
         self._code = code

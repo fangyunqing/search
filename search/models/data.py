@@ -78,7 +78,7 @@ class Search(db.Model, SerializerMixin):
 
 class SearchCondition(db.Model, SerializerMixin):
     __tablename__ = "search_condition"
-    serialize_only = ("id", "name", "display", "datatype", "order", "create_time")
+    serialize_only = ("id", "name", "display", "datatype", "order", "create_time", "list_values")
     __table_args__ = (
         db.UniqueConstraint('search_id', 'name', name='uix_search_condition_id_name'),
     )
@@ -94,6 +94,8 @@ class SearchCondition(db.Model, SerializerMixin):
     order = Column(Integer, nullable=False)
     # 搜索的ID
     search_id = Column(Integer, ForeignKey("search.id"))
+    # sql语句
+    list_values = Column(String(1024))
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
 
@@ -137,6 +139,8 @@ class SearchSQLField(db.Model, SerializerMixin):
     left = Column(String(1024), nullable=False)
     # 右侧
     right = Column(String(1024))
+    # 真实的右边
+    real_right = Column(String(1024))
     # 搜索SQL的ID
     search_sql_id = Column(Integer, ForeignKey("search_sql.id", ondelete='CASCADE'))
     # 生成时间
@@ -146,7 +150,7 @@ class SearchSQLField(db.Model, SerializerMixin):
 class SearchSQL(db.Model, SerializerMixin):
     __tablename__ = "search_sql"
     serialize_only = ("id", "name", "display", "expression", "select_expression", "from_expression",
-                      "where_expression", "other_expression", "order", "create_time", "how")
+                      "where_expression", "other_expression", "order", "create_time", "how", "depend", "major")
     __table_args__ = (
         db.UniqueConstraint('search_id', 'name', name='uix_search_sql_id_name'),
     )
@@ -158,6 +162,8 @@ class SearchSQL(db.Model, SerializerMixin):
     display = Column(String(255), nullable=False)
     # expression
     expression = Column(Text, nullable=False)
+    # 是否是主查询
+    major = Column(String(1))
     # 连接方式
     how = Column(Text, nullable=False)
     # select
@@ -169,7 +175,7 @@ class SearchSQL(db.Model, SerializerMixin):
     # other
     other_expression = Column(Text, nullable=True)
     # 排序号
-    order = Column(Integer, nullable=False)
+    order = Column(Integer)
     # 字段
     fields = db.relationship("SearchSQLField", backref="search_sql",
                              passive_deletes=True)
@@ -180,6 +186,8 @@ class SearchSQL(db.Model, SerializerMixin):
     conditions = db.relationship("SearchSqlCondition",
                                  backref="search_sql",
                                  passive_deletes=True)
+    # 依赖
+    depend = Column(String(128))
     # 搜索的ID
     search_id = Column(Integer, ForeignKey("search.id"))
     # 生成时间
@@ -212,8 +220,12 @@ class SearchSqlResult(db.Model, SerializerMixin):
     left = Column(String(1024))
     # 右边
     right = Column(String(1024))
+    # 真实的右边
+    real_right = Column(String(1024))
     # 中间
     mid = Column(String(1024))
+    # 依赖的sqlId
+    depend_search_sql_id = Column(Integer)
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
 
@@ -228,8 +240,12 @@ class SearchSqlCondition(db.Model, SerializerMixin):
     left = Column(String(1024))
     # 右边
     right = Column(String(1024))
+    # 真实的右边
+    real_right = Column(String(1024))
     # 中间
     mid = Column(String(1024))
+    # 条件的ID
+    depend_search_condition_id = Column(Integer)
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
 
@@ -255,4 +271,5 @@ class SearchFile(db.Model, SerializerMixin):
     status = Column(String(128), default=constant.FileStatus.USABLE)
     # 文件名
     file_name = Column(String(128), nullable=True)
+
 
