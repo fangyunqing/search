@@ -78,7 +78,7 @@ class Search(db.Model, SerializerMixin):
 
 class SearchCondition(db.Model, SerializerMixin):
     __tablename__ = "search_condition"
-    serialize_only = ("id", "name", "display", "datatype", "order", "create_time", "list_values")
+    serialize_only = ("id", "name", "display", "datatype", "order", "create_time", "list_values", "date_default")
     __table_args__ = (
         db.UniqueConstraint('search_id', 'name', name='uix_search_condition_id_name'),
     )
@@ -98,6 +98,8 @@ class SearchCondition(db.Model, SerializerMixin):
     list_values = Column(String(1024))
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
+    # 日期默认值
+    date_default = Column(String(128))
 
 
 class SearchField(db.Model, SerializerMixin):
@@ -257,7 +259,7 @@ class SearchFile(db.Model, SerializerMixin):
     id = Column(Integer, primary_key=True, autoincrement=True)
     # 搜索的ID
     search_id = Column(Integer, ForeignKey("search.id"))
-    # mad5
+    # md5
     search_md5 = Column(String(128), nullable=False)
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
@@ -273,3 +275,17 @@ class SearchFile(db.Model, SerializerMixin):
     file_name = Column(String(128), nullable=True)
 
 
+class SearchRecord(db.Model, SerializerMixin):
+    __tablename__ = "search_record"
+    # 主键
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    # 搜索的ID
+    search_id = Column(Integer)
+    # md5
+    search_md5 = Column(String(128))
+    # json
+    search_json = Column(Text)
+    # 执行时间
+    search_time = Column(Integer)
+    # 生成时间
+    create_time = Column(DateTime(timezone=True), default=func.now())

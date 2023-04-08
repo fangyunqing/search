@@ -55,10 +55,10 @@ def create_search_md5(search: Dict) -> SearchMd5:
     sm.search_conditions = {key: value for key, value in search_conditions.items() if
                             (isinstance(value, str) and len(value) > 0) or value}
 
-    sm.search_sort_condition_list = list(search_conditions.keys())
+    sm.search_sort_condition_list = list(sm.search_conditions)
     sm.search_sort_condition_list.sort()
     for condition in sm.search_sort_condition_list:
-        sm.search_sort_condition_value_list.append(search_conditions.get(condition))
+        sm.search_sort_condition_value_list.append(sm.search_conditions.get(condition))
 
     md5_list = [sm.search_name, sm.search_sort_field_list]
     sm.search_field_md5 = hashlib.md5(simplejson.dumps(md5_list).encode(encoding='utf-8')).hexdigest()

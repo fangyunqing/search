@@ -147,7 +147,7 @@ class SearchContextManager:
                                              for search_sql_condition in search_sql.conditions]:
                                 if search_sql.id not in search_buffer_dict.keys():
                                     search_buffer_dict[search_sql.id] = self._pack_search_buffer(search_sql)
-                                if len(search_sql.depend) > 0:
+                                if search_sql.depend and len(search_sql.depend) > 0:
                                     for depend_search_sql_id in [int(search_sql_id)
                                                                  for search_sql_id in search_sql.depend.split(",")]:
                                         if depend_search_sql_id not in search_buffer_dict.keys():
@@ -267,6 +267,9 @@ class SearchContextManager:
     def _field(cls, search_context: SearchContext, search_md5: SearchMd5):
         tmp_table: Dict[str, str] = {}
         for search_buffer in search_context.search_buffer_list:
+            group_by = False
+            if search_buffer.search_sql.other_expression and 'GROUP BY' in search_buffer.search_sql.other_expression:
+                group_by = True
             # 临时表名
             tmp_md5 = hashlib.md5(",".join(search_buffer.select_fields).encode(encoding='utf-8')).hexdigest()
             search_buffer.tmp_tablename = "#{}" + "_" + str(search_buffer.search_sql.id) + "_" + tmp_md5
@@ -296,7 +299,10 @@ class SearchContextManager:
                     for rf in search_buffer.search_sql_results:
                         if rf.right.split(".")[-1] == field_name:
                             search_buffer.select_fields.append(field_name)
-                            search_buffer.field_list.append(f"{rf.left} {field_name}")
+                            if group_by:
+                                search_buffer.field_list.append(f"MAX({rf.left}) {field_name}")
+                            else:
+                                search_buffer.field_list.append(f"{rf.left} {field_name}")
                             search_buffer.join_fields.append(field_name)
                             where_expression_list.append(
                                 f"(select {field_name} from {tmp_table[field_name]})")

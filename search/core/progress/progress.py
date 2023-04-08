@@ -49,6 +49,11 @@ class ProgressStep(metaclass=ABCMeta):
                 if p.value != 100:
                     p.count = 1
                     p.steps = [1]
+            else:
+                p = ProgressInfo()
+                p.count = 1
+                p.steps = [1]
+                self._progress_infos[s] = p
         return self._progress_infos.setdefault(step_name, ProgressInfo())
 
     @property

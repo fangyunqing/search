@@ -88,7 +88,8 @@ class Search(ISearch):
         if data is None:
             try:
                 data, page = self._csv_search_cache.get_data(search_context=search_context, page_number=page_number)
-                return CommonResult.fail(code=MessageCode.LAST_PAGE.code, message=MessageCode.LAST_PAGE.desc)
+                if data is None:
+                    return CommonResult.fail(code=MessageCode.LAST_PAGE.code, message=MessageCode.LAST_PAGE.desc)
             except FileNotFindSearchException:
                 if page_number == 1:
                     data_df = self._db_search_cache.get_data(search_context=search_context, top=True)

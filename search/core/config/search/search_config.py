@@ -115,15 +115,12 @@ class SearchConfig(ISearchConfig):
         else:
             return CommonResult.fail(code=MessageCode.NOT_FOUND.code, message="未找到需要解析的查询")
 
-    @transactional
     def modify(self, data: str) -> Dict:
         m = munch.Munch(simplejson.loads(data))
         search_id, search_name = self._modify(m)
-        scm.delete_search_context(search_name)
         thread_pool.submit(self._parse_search, search_id, current_app._get_current_object())
         return CommonResult.success()
 
-    @transactional
     def add(self, data: str) -> Dict:
         m = munch.Munch(simplejson.loads(data))
         search_id, search_name = self._add(m)
@@ -250,6 +247,8 @@ class SearchConfig(ISearchConfig):
         db.session.add_all(search_condition_list)
         db.session.add_all(search_sql_list)
         db.session.add_all(search_field_list)
+
+        scm.delete_search_context(search_name)
 
         return search_id, search_name
 

@@ -53,7 +53,7 @@ class AbstractCSVSearchCache(CSVSearchCache):
             df = pd.read_csv(search_file.path,
                              sep="`",
                              skiprows=range(1, (page_begin - 1) * page_size + 1),
-                             nrows=page_size * (page_end - page_begin + 1) + 1)
+                             nrows=page_size * (page_end - page_begin + 1))
             d_redis_search_cache = DefaultRedisSearchCache()
             d_redis_search_cache.set_data(search_context=search_context,
                                           data_df=df,

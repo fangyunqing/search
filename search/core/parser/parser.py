@@ -184,14 +184,15 @@ class SearchParser(ISearchParser):
             errors.append("sql语句中只有一个主查询(没有引用其他sql的就是主查询)")
 
         # sql排序
-        try:
-            order_dict = self.order_sql(depend_dict, major_search_id_list, 1)
-            for search_sql in search_sql_list:
-                if search_sql.id in order_dict.keys():
-                    search_sql.order = order_dict[search_sql.id]
-                    search_sql.major = "0"
-        except SearchParseException as e:
-            errors.append(str(e))
+        if len(depend_dict) > 0:
+            try:
+                order_dict = self.order_sql(depend_dict, major_search_id_list, 1)
+                for search_sql in search_sql_list:
+                    if search_sql.id in order_dict.keys():
+                        search_sql.order = order_dict[search_sql.id]
+                        search_sql.major = "0"
+            except SearchParseException as e:
+                errors.append(str(e))
 
         # 字符解析
         for search_field in search_field_list:
