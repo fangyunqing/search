@@ -99,7 +99,7 @@ class AbstractRedisSearchCache(RedisSearchCache):
         pass
 
 
-class DefaultRedisSearchCache(AbstractRedisSearchCache):
+class CommonRedisSearchCache(AbstractRedisSearchCache):
     execs = ["exec"]
 
     def count(self, search_context: SearchContext, data_df: pd.DataFrame):
@@ -112,3 +112,8 @@ class DefaultRedisSearchCache(AbstractRedisSearchCache):
         r.setex(name=redis_key,
                 time=search_context.search.redis_cache_time,
                 value=data)
+
+
+@Progress(prefix="search", suffix="redis_o_csv")
+class DefaultRedisSearchCache(CommonRedisSearchCache):
+    pass

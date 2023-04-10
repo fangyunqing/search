@@ -5,7 +5,7 @@
 
 __author__ = 'fyq'
 
-from .redis_search_cache import DefaultRedisSearchCache
+from .redis_search_cache import DefaultRedisSearchCache, CommonRedisSearchCache
 from .db_search_cache import DefaultDBSearchCache, DefaultDBExportCache
 from .csv_export_cache import DefaultCSVExportCache
 from .tar_export_cache import DefaultTarExportCache

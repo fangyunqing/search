@@ -79,7 +79,7 @@ class ProgressStep(metaclass=ABCMeta):
 class SearchProgressStep(ProgressStep):
 
     def _steps(self) -> List[Tuple[str, str]]:
-        return [("db", "数据查询中")]
+        return [("db", "数据查询中"), ("redis_o_csv", "数据打包中")]
 
 
 class ExportProgressStep(ProgressStep):

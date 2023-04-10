@@ -17,7 +17,7 @@ import simplejson as json
 from sqlalchemy import desc
 
 from search import models, constant, db
-from search.core.cache import DefaultRedisSearchCache
+from search.core.cache import CommonRedisSearchCache
 from search.core.page import Page
 from search.core.progress import Progress
 from search.core.search_context import SearchContext
@@ -54,7 +54,7 @@ class AbstractCSVSearchCache(CSVSearchCache):
                              sep="`",
                              skiprows=range(1, (page_begin - 1) * page_size + 1),
                              nrows=page_size * (page_end - page_begin + 1))
-            d_redis_search_cache = DefaultRedisSearchCache()
+            d_redis_search_cache = CommonRedisSearchCache()
             d_redis_search_cache.set_data(search_context=search_context,
                                           data_df=df,
                                           page_begin=page_begin,
@@ -84,6 +84,7 @@ class AbstractCSVSearchCache(CSVSearchCache):
         pass
 
 
+@Progress(prefix="search", suffix="redis_o_csv")
 class DefaultCSVSearchCache(AbstractCSVSearchCache):
     execs = ["exec", "exec_page"]
 

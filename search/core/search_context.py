@@ -282,16 +282,16 @@ class SearchContextManager:
                     if sf.left:
                         search_buffer.field_list.append(sf.left + " " + sf.right)
                     else:
-                        search_buffer.field_list.append(sf.right.split(".")[-1])
+                        search_buffer.field_list.append(sf.right)
 
                 if sf.right.split(".")[-1] in search_buffer.tmp_fields:
                     if sf.left:
                         search_buffer.tmp_field_list.append(sf.left + " " + sf.right)
                     else:
-                        search_buffer.tmp_field_list.append(sf.right.split(".")[-1])
+                        search_buffer.tmp_field_list.append(sf.right)
 
-            search_buffer.select_fields = [f.split()[-1] for f in search_buffer.field_list]
-            search_buffer.tmp_fields = [f.split()[-1] for f in search_buffer.tmp_field_list]
+            search_buffer.select_fields = [f.split()[-1].split(".")[-1] for f in search_buffer.field_list]
+            search_buffer.tmp_fields = [f.split()[-1].split(".")[-1] for f in search_buffer.tmp_field_list]
             where_expression_list = []
             for fe in search_buffer.search_sql.where_expression.split():
                 if fe.startswith("result."):

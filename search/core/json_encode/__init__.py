@@ -6,7 +6,7 @@
 __author__ = 'fyq'
 
 import simplejson as json
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 from uuid import UUID
 
@@ -21,6 +21,11 @@ class SearchEncoder(json.JSONEncoder):
                 return ""
             else:
                 return obj.strftime("%Y-%m-%d %H:%M:%S")
+        elif isinstance(obj, date):
+            if isinstance(obj, NaTType):
+                return ""
+            else:
+                return obj.strftime("%Y-%m-%d")
         elif isinstance(obj, Decimal):
             float(str(obj))
         elif isinstance(obj, UUID):
