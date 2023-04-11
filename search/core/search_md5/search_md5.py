@@ -19,6 +19,7 @@ from search.entity.common_result import BaseDataClass
 
 @dataclass
 class SearchMd5(BaseDataClass):
+
     search: Dict = None
 
     search_name: str = None

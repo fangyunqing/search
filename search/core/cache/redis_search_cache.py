@@ -95,7 +95,7 @@ class AbstractRedisSearchCache(RedisSearchCache):
         pass
 
     @abstractmethod
-    def exec(self, r: Redis, search_context: SearchContext, chunk_df: pd.DataFrame, page_number: int):
+    def exec(self, search_context: SearchContext, r: Redis, chunk_df: pd.DataFrame, page_number: int):
         pass
 
 
@@ -106,7 +106,7 @@ class CommonRedisSearchCache(AbstractRedisSearchCache):
         page_size = search_context.search.page_size
         return math.ceil(len(data_df) / page_size)
 
-    def exec(self, r: Redis, search_context: SearchContext, chunk_df: pd.DataFrame, page_number: int):
+    def exec(self, search_context: SearchContext, r: Redis, chunk_df: pd.DataFrame, page_number: int):
         data = json.dumps(chunk_df.to_dict("records"), cls=SearchEncoder, ignore_nan=True)
         redis_key: str = f"{search_context.search_key}_{page_number}"
         r.setex(name=redis_key,

@@ -74,6 +74,7 @@ class AbstractDBSearchCache(DBSearchCache):
                 search_df_list: List[pd.DataFrame] = []
                 for conn in conn_list:
                     res = self.exec(conn=conn,
+                                    search_context=search_context,
                                     search_buffer=search_buffer,
                                     sql=sql,
                                     tmp_sql=tmp_sql)
@@ -129,21 +130,50 @@ class AbstractDBSearchCache(DBSearchCache):
         pass
 
     @abstractmethod
-    def exec(self, conn, search_buffer: munch.Munch, sql: str, tmp_sql: str) -> Any:
+    def exec(self, search_context: SearchContext, search_buffer: munch.Munch, conn, sql: str, tmp_sql: str) -> Any:
+        pass
+
+    @abstractmethod
+    def exec_new_df(self, search_context: SearchContext, df: pd.DataFrame):
         pass
 
 
 class DefaultDBCache(AbstractDBSearchCache):
-    execs = ["exec"]
+
+    def exec_new_df(self, search_context: SearchContext, df: pd.DataFrame):
+        new_df = pd.DataFrame()
+        for field in search_context.search_md5.search_original_field_list:
+            for search_field in search_context.search_field_list:
+                if field != search_field.name:
+                    continue
+                try:
+                    if search_field.rule.startswith(("def", "import", "from")):
+                        md = RuntimeModule.from_string('a', search_field.rule)
+                        find = False
+                        for v in md.__dict__.values():
+                            if callable(v):
+                                new_df[field] = df.apply(v, axis=1)
+                                find = True
+                                break
+                        if not find:
+                            new_df[field] = None
+                            logger.warning(f"{search_context.search_md5.search_name}-{field}-rule未发现可执行函数")
+                    else:
+                        new_df[field] = df[search_field.rule]
+                except Exception as e:
+                    new_df[field] = ""
+                    logger.exception(e)
+
+    execs = ["exec", "exec_new_df"]
 
     def count(self, conn_list: List, search_context: SearchContext, top: bool):
         c = len(conn_list) * len(search_context.search_buffer_list)
         if top:
-            return c - len(conn_list) + 1
+            return c - len(conn_list) + 2
         else:
-            return c
+            return c + 1
 
-    def exec(self, conn, search_buffer: SearchBuffer, sql: str, tmp_sql: str) -> Any:
+    def exec(self, search_context: SearchContext, search_buffer: SearchBuffer, conn, sql: str, tmp_sql: str) -> Any:
         cur = conn.cursor()
         try:
             if len(search_buffer.tmp_fields) > 0:

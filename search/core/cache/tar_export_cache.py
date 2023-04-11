@@ -102,7 +102,7 @@ class AbstractTarExportCache(TarExportCache):
         pass
 
     @abstractmethod
-    def exec(self, chunk_df: pd.DataFrame, search_context: SearchContext, index: int, tar_dir: str,
+    def exec(self, search_context: SearchContext, chunk_df: pd.DataFrame, index: int, tar_dir: str,
              file_path_list: List[str]):
         pass
 
@@ -114,7 +114,7 @@ class DefaultTarExportCache(AbstractTarExportCache):
     def count(self, data_df: pd.DataFrame, size: int):
         return math.ceil(len(data_df) / size)
 
-    def exec(self, chunk_df: pd.DataFrame, search_context: SearchContext, index: int, tar_dir: str,
+    def exec(self, search_context: SearchContext, chunk_df: pd.DataFrame, index: int, tar_dir: str,
              file_path_list: List[str]):
         file_path = f"{tar_dir}{os.path.sep}{search_context.search.name}_{index}"
         if constant.FileType.CSV == search_context.search.export_file_type:

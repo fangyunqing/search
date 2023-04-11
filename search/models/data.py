@@ -5,7 +5,7 @@
 
 __author__ = 'fyq'
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, func, BigInteger
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, func, BigInteger, Numeric
 from sqlalchemy_serializer import SerializerMixin
 
 import search.constant as constant
@@ -282,10 +282,18 @@ class SearchRecord(db.Model, SerializerMixin):
     # 搜索的ID
     search_id = Column(Integer)
     # md5
-    search_md5 = Column(String(128))
+    search_key = Column(String(128))
     # json
     search_json = Column(Text)
     # 执行时间
-    search_time = Column(Integer)
+    search_time = Column(Numeric(20, 10))
+    # 前缀
+    search_prefix = Column(String(128))
+    # 后缀
+    search_suffix = Column(String(128))
+    # 序号
+    order = Column(Integer)
+    # 备注
+    memo = Column(Text)
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
