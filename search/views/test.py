@@ -12,6 +12,6 @@ from search.core.search_context import scm
 test_bp = Blueprint("test", __name__)
 
 
-@test_bp.route(rule="/test")
+@test_bp.route(rule="/connect")
 def test():
-    return scm.to_redis()
+    return "ok"
