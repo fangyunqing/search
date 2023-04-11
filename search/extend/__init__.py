@@ -13,9 +13,11 @@ import redis
 from flask_apscheduler import APScheduler
 from loguru import logger
 
+from search.config.settings import REDIS_HOST, REDIS_PORT
+
 db: SQLAlchemy = SQLAlchemy()
 migrate: Migrate = Migrate()
-redis_pool = redis.ConnectionPool(host="127.0.0.1", port=6379)
+redis_pool = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT)
 thread_pool = ThreadPoolExecutor(max_workers=20)
 scheduler = APScheduler()
 

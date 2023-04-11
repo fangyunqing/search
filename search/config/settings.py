@@ -13,3 +13,5 @@ SECRET_KEY = "search"
 FILE_DIR = f"D:{os.path.sep}search_file"
 SCHEDULER_TIMEZONE = 'Asia/Shanghai'
 SCHEDULER_API_ENABLED = True
+REDIS_HOST = "127.0.0.1"
+REDIS_PORT = 6379
