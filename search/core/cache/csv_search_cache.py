@@ -43,8 +43,6 @@ class AbstractCSVSearchCache(CSVSearchCache):
             models.SearchFile.query.filter_by(search_md5=search_context.search_key, use=constant.SEARCH) \
             .order_by(desc(models.SearchFile.create_time)) \
             .first()
-        data = None
-        page = None
         if search_file and os.path.isfile(search_file.path):
             pages = search_context.search.pages
             page_size = search_context.search.page_size

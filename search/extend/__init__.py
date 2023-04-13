@@ -21,10 +21,11 @@ redis_pool = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT)
 thread_pool = ThreadPoolExecutor(max_workers=20)
 scheduler = APScheduler()
 
-logger.add("log/search_{time:YYYY-MM-DD}.log", rotation="00:00",
+logger.add("log/search_{time:YYYY-MM-DD}.log", rotation="00:05",
            retention="60 days",
            compression="tar.gz",
            mode='a+',
            encoding='utf-8',
            backtrace=True,
-           diagnose=True)
+           diagnose=True,
+           enqueue=True)
