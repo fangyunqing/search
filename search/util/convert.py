@@ -62,14 +62,14 @@ def data2DictOrList(data: Union[Dict, List]):
         return res
 
 
-def data2M(data: Union[Dict, List]):
+def data2munch(data: Union[Dict, List]):
     if isinstance(data, Dict):
         res = {}
         for k, v in data.items():
             if isinstance(v, Dict):
-                res[k] = data2M(v)
+                res[k] = data2munch(v)
             elif isinstance(v, List):
-                res[k] = data2M(v)
+                res[k] = data2munch(v)
             else:
                 res[k] = v
         return munch.Munch(res)
@@ -77,9 +77,9 @@ def data2M(data: Union[Dict, List]):
         res = []
         for d in data:
             if isinstance(d, Dict):
-                res.append(data2M(d))
+                res.append(data2munch(d))
             elif isinstance(d, List):
-                res.append(data2M(d))
+                res.append(data2munch(d))
             else:
                 res.append(d)
         return res

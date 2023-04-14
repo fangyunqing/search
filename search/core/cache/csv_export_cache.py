@@ -39,7 +39,9 @@ class AbstractCSVExportCache(CSVExportCache):
 
     def get_data(self, search_context: SearchContext) -> Optional[pd.DataFrame]:
         search_file: models.SearchFile = \
-            models.SearchFile.query.filter_by(search_md5=search_context.search_key, use=constant.SEARCH) \
+            models.SearchFile.query.filter_by(search_md5=search_context.search_key,
+                                              use=constant.SEARCH,
+                                              status=constant.FileStatus.USABLE) \
             .order_by(desc(models.SearchFile.create_time)) \
             .first()
         if search_file and os.path.isfile(search_file.path):

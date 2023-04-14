@@ -15,3 +15,9 @@ class RedisKeySuffix:
     SEARCH_CONTEXT_EMPTY = "context_empty_174aeb1d-0154-0617-83c1-f87b349481b2"
 
     ALL_DATA = "all_data"
+
+    SEARCH = "search"
+
+    EXPORT = "export"
+
+    SEARCH_DELETE_FILE = "delete_file_174aeb1d-0154-0617-83c1-f87b349481b2"

@@ -94,6 +94,9 @@ class Search(ISearch):
                 if page_number == 1:
                     data_df = self._db_search_cache.get_data(search_context=search_context, top=True)
                     if len(data_df) > 0:
+                        data_df_real_len = (len(
+                            data_df) // search_context.search.page_size) * search_context.search.page_size
+                        data_df = data_df.iloc[0:data_df_real_len]
                         self._redis_search_cache.set_data(search_context=search_context,
                                                           data_df=data_df,
                                                           page_begin=1,
@@ -103,15 +106,11 @@ class Search(ISearch):
                     else:
                         return CommonResult.fail(code=MessageCode.LAST_PAGE.code, message=MessageCode.LAST_PAGE.desc)
                 r = redis.Redis(connection_pool=redis_pool)
-                if r.setnx(name=f"{search_context.search_key}_{constant.SEARCH}", value=1):
-                    try:
-                        if search_context.search_future is None or search_context.search_future.done():
-                            progress_manager.set_new_progress_step(constant.SEARCH, search_context.search_key)
-                            search_context.search_future = thread_pool.submit(self._search_thread_func,
-                                                                              current_app._get_current_object(),
-                                                                              search_context)
-                    finally:
-                        r.delete(f"{search_context.search_key}_{constant.SEARCH}")
+                if r.setnx(name=f"{search_context.search_key}_{constant.RedisKeySuffix.SEARCH}", value=1):
+                    progress_manager.set_new_progress_step(constant.SEARCH, search_context.search_key)
+                    search_context.search_future = thread_pool.submit(self._search_thread_func,
+                                                                      current_app._get_current_object(),
+                                                                      search_context)
         if data is None:
             return CommonResult.fail(code=MessageCode.NOT_READY.code, message=MessageCode.NOT_READY.desc)
         else:
@@ -141,15 +140,11 @@ class Search(ISearch):
                                            as_attachment=True))
         else:
             r = redis.Redis(connection_pool=redis_pool)
-            if r.setnx(name=f"{search_context.search_key}_{constant.EXPORT}", value=1):
-                try:
-                    if search_context.export_future is None or search_context.export_future.done():
-                        progress_manager.set_new_progress_step(constant.EXPORT, search_context.search_key)
-                        search_context.export_future = thread_pool.submit(self._export_thread_func,
-                                                                          current_app._get_current_object(),
-                                                                          search_context)
-                finally:
-                    r.delete(f"{search_context.search_key}_{constant.EXPORT}")
+            if r.setnx(name=f"{search_context.search_key}_{constant.RedisKeySuffix.EXPORT}", value=1):
+                progress_manager.set_new_progress_step(constant.EXPORT, search_context.search_key)
+                search_context.export_future = thread_pool.submit(self._export_thread_func,
+                                                                  current_app._get_current_object(),
+                                                                  search_context)
 
             response = make_response()
             response.status_code = 250
@@ -173,6 +168,9 @@ class Search(ISearch):
                                                           whole=True)
         except Exception as e:
             logger.exception(e)
+        finally:
+            r = redis.Redis(connection_pool=redis_pool)
+            r.delete(f"{search_context.search_key}_{constant.RedisKeySuffix.SEARCH}")
 
     def _export_thread_func(self, app: Flask, search_context: SearchContext):
         try:
@@ -188,6 +186,9 @@ class Search(ISearch):
                                                     file_dir=file_dir)
         except Exception as e:
             logger.exception(e)
+        finally:
+            r = redis.Redis(connection_pool=redis_pool)
+            r.delete(f"{search_context.search_key}_{constant.RedisKeySuffix.EXPORT}")
 
     def export_progress(self, data: str) -> dict:
         data = json.loads(data)
@@ -211,7 +212,7 @@ class Search(ISearch):
         if not search:
             return CommonResult.fail(code=MessageCode.NOT_PROGRESS.code,
                                      message=MessageCode.NOT_PROGRESS.desc)
-        progress_step =\
+        progress_step = \
             progress_manager.find_progress_step(constant.SEARCH, f"V{search.version}_{search_md5.search_md5}")
         if progress_step:
             return CommonResult.success(data=progress_step.info)
