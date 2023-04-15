@@ -23,9 +23,8 @@ thread_pool = ThreadPoolExecutor(max_workers=20)
 scheduler = APScheduler()
 
 logger.remove(handler_id=None)
-logger.add("log/search_{time:YYYY-MM-DD}.log", rotation="00:05",
+logger.add("log/search_{time:YYYY-MM-DD}.log", rotation="00:00",
            retention="60 days",
-           compression="tar.gz",
            format="{time:YYYY-MM-DD at HH:mm:ss} | {level} "
                   "| {module}:{function}:{line} | {process} | {thread} | {message}",
            mode='a+',
