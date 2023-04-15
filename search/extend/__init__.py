@@ -26,12 +26,14 @@ logger.remove(handler_id=None)
 logger.add("log/search_{time:YYYY-MM-DD}.log", rotation="00:05",
            retention="60 days",
            compression="tar.gz",
-           format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {module}:{function}:{line} | {thread.name} | {message}",
+           format="{time:YYYY-MM-DD at HH:mm:ss} | {level} "
+                  "| {module}:{function}:{line} | {process} | {thread} | {message}",
            mode='a+',
            encoding='utf-8',
            backtrace=True,
            diagnose=True)
 
 logger.add(sys.stdout,
-           format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {module}:{function}:{line} | {thread.name} | {message}",
+           format="{time:YYYY-MM-DD at HH:mm:ss} | {level} "
+                  "| {module}:{function}:{line} | {process} | {thread} | {message}",
            )
