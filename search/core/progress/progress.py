@@ -12,6 +12,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Optional
 
+import redis
 from loguru import logger
 
 from search import constant, models, db
@@ -21,10 +22,11 @@ from search.exceptions import ProgressException
 
 import simplejson
 
+from search.extend import redis_pool
+
 
 @dataclass
 class ProgressInfo:
-
     steps: List[int] = field(default_factory=lambda: [])
 
     count: int = 0
@@ -177,8 +179,14 @@ class Progress:
                             })
                         progress_info.records.append(search_record)
 
+                        r = redis.Redis(connection_pool=redis_pool)
+                        r.setex(name=f"{self._prefix}_{search_md5}",
+                                value=simplejson.dumps(progress_step.info),
+                                time=43200)
+
                         if progress_step.last_step(self._suffix) and progress_info.value == 100:
                             progress_step.to_db()
+                            progress_manager.delete_progress_step(self._prefix, search_md5)
                 return res
             except Exception as e:
                 if search_md5:
@@ -197,27 +205,52 @@ class ProgressManager:
 
     def get_progress_info(self, prefix: str, search_md5: str, suffix: str) -> ProgressInfo:
         return self._progresses.setdefault(prefix, dict()) \
-            .setdefault(search_md5, self._create_progress_step(prefix)) \
+            .setdefault(search_md5, self._create_progress_step(prefix, search_md5)) \
             .get_progress_info(suffix)
 
     def get_progress_step(self, prefix: str, search_md5: str) -> ProgressStep:
         return self._progresses.setdefault(prefix, dict()) \
-            .setdefault(search_md5, self._create_progress_step(prefix))
+            .setdefault(search_md5, self._create_progress_step(prefix, search_md5))
 
     def set_new_progress_step(self, prefix: str, search_md5: str):
-        self._progresses.setdefault(prefix, dict())[search_md5] = self._create_progress_step(prefix)
+        self._progresses.setdefault(prefix, dict())[search_md5] = self._create_progress_step(prefix, search_md5)
 
     def find_progress_step(self, prefix: str, search_md5: str) -> Optional[ProgressStep]:
         if prefix in self._progresses:
             if search_md5 in self._progresses[prefix]:
                 return self._progresses[prefix][search_md5]
 
-    @staticmethod
-    def _create_progress_step(prefix: str) -> Optional[ProgressStep]:
-        if prefix == constant.SEARCH:
-            return SearchProgressStep()
+    def delete_progress_step(self, prefix: str, search_md5: str):
+        if prefix in self._progresses:
+            if search_md5 in self._progresses[prefix]:
+                self._progresses[prefix].pop(search_md5)
+
+    @classmethod
+    def get_progress_step_info(cls, prefix: str, search_md5: str) -> Optional[Dict]:
+        r = redis.Redis(connection_pool=redis_pool)
+        value: bytes = r.get(name=f"{prefix}_{search_md5}")
+        if value:
+            return simplejson.loads(value.decode())
         else:
-            return ExportProgressStep()
+            return None
+
+    @staticmethod
+    def _create_progress_step(prefix: str, search_md5: str) -> Optional[ProgressStep]:
+        if prefix == constant.SEARCH:
+            sp = SearchProgressStep()
+            r = redis.Redis(connection_pool=redis_pool)
+            r.setex(name=f"{prefix}_{search_md5}",
+                    value=simplejson.dumps(sp.info),
+                    time=43200)
+            return sp
+
+        else:
+            ep = ExportProgressStep()
+            r = redis.Redis(connection_pool=redis_pool)
+            r.setex(name=f"{prefix}_{search_md5}",
+                    value=simplejson.dumps(ep.info),
+                    time=43200)
+            return ep
 
 
 progress_manager = ProgressManager()

@@ -199,13 +199,11 @@ class Search(ISearch):
                                      message=MessageCode.NOT_PROGRESS.desc)
 
         mid = f"{search.name}_v{search.version}_{search_md5.search_md5}"
-        logger.info(f"search progress for {constant.EXPORT}_{mid}")
+        logger.info(f"search progress for [{constant.EXPORT}_{mid}]")
 
-        progress_step = \
-            progress_manager.find_progress_step(constant.EXPORT,
-                                                mid)
-        if progress_step:
-            return CommonResult.success(data=progress_step.info)
+        progress_step_info = progress_manager.get_progress_step_info(constant.EXPORT, mid)
+        if progress_step_info:
+            return CommonResult.success(data=progress_step_info)
         else:
             return CommonResult.fail(code=MessageCode.NOT_PROGRESS.code,
                                      message=MessageCode.NOT_PROGRESS.desc)
@@ -219,13 +217,11 @@ class Search(ISearch):
                                      message=MessageCode.NOT_PROGRESS.desc)
 
         mid = f"{search.name}_v{search.version}_{search_md5.search_md5}"
-        logger.info(f"search progress for {constant.SEARCH}_{mid}")
+        logger.info(f"search progress for [{constant.SEARCH}_{mid}]")
 
-        progress_step = \
-            progress_manager.find_progress_step(constant.SEARCH,
-                                                mid)
-        if progress_step:
-            return CommonResult.success(data=progress_step.info)
+        progress_step_info = progress_manager.get_progress_step_info(constant.SEARCH, mid)
+        if progress_step_info:
+            return CommonResult.success(data=progress_step_info)
         else:
             return CommonResult.fail(code=MessageCode.NOT_PROGRESS.code,
                                      message=MessageCode.NOT_PROGRESS.desc)
