@@ -34,5 +34,5 @@ logger.add("log/search_{time:YYYY-MM-DD}.log", rotation="00:00",
 
 logger.add(sys.stdout,
            format="{time:YYYY-MM-DD at HH:mm:ss} | {level} "
-                  "| {module}:{function}:{line} | {process} | {thread} | {message}",
+                  "| {module}:{function}:{line} | {process} | {thread} | {message}"
            )
