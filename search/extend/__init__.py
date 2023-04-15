@@ -27,5 +27,4 @@ logger.add("log/search_{time:YYYY-MM-DD}.log", rotation="00:05",
            mode='a+',
            encoding='utf-8',
            backtrace=True,
-           diagnose=True,
-           enqueue=True)
+           diagnose=True)
