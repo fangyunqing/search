@@ -37,8 +37,9 @@ services:
     restart: always
     privileged: true
     volumes:
-    - /app/search-back/src1/config:/search/search/config
-    - /app/search-back/src1/log:/search/log
+    - /app/search-back/config:/search/search/config
+    - /app/search-back/log:/search/log
+    - /app/search-back/gunicorn-config:/search/config
     - /etc/localtime:/etc/localtime:ro
     depends_on:
       - mysql
