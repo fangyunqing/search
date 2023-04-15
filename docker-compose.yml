@@ -39,6 +39,7 @@ services:
     volumes:
     - /app/search-back/config:/search/search/config
     - /app/search-back/log:/search/log
+    - /app/searcg-back/gunicorn-config:/search/config
     - /etc/localtime:/etc/localtime:ro
     depends_on:
       - mysql
