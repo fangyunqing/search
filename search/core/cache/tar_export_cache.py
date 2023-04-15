@@ -76,7 +76,7 @@ class AbstractTarExportCache(TarExportCache):
                               index=index,
                               tar_dir=tar_dir,
                               file_path_list=file_path_list)
-            tar_path = f"{file_dir}{os.path.sep}{search_context.search.display}.tar.gz"
+            tar_path = f"{tar_dir}{os.path.sep}{search_context.search.name}.tar.gz"
             with tarfile.open(name=tar_path, mode="w:gz", encoding='utf-8') as tar:
                 for file_path in file_path_list:
                     d, f = os.path.split(file_path)
