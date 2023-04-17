@@ -108,9 +108,9 @@ class Search(ISearch):
                 r = redis.Redis(connection_pool=redis_pool)
                 if r.setnx(name=f"{search_context.search_key}_{constant.RedisKeySuffix.SEARCH}", value=1):
                     progress_manager.set_new_progress_step(constant.SEARCH, search_context.search_key)
-                    search_context.search_future = thread_pool.submit(self._search_thread_func,
-                                                                      current_app._get_current_object(),
-                                                                      search_context)
+                    thread_pool.submit(self._search_thread_func,
+                                       current_app._get_current_object(),
+                                       search_context)
         if data is None:
             return CommonResult.fail(code=MessageCode.NOT_READY.code, message=MessageCode.NOT_READY.desc)
         else:
@@ -142,9 +142,9 @@ class Search(ISearch):
             r = redis.Redis(connection_pool=redis_pool)
             if r.setnx(name=f"{search_context.search_key}_{constant.RedisKeySuffix.EXPORT}", value=1):
                 progress_manager.set_new_progress_step(constant.EXPORT, search_context.search_key)
-                search_context.export_future = thread_pool.submit(self._export_thread_func,
-                                                                  current_app._get_current_object(),
-                                                                  search_context)
+                thread_pool.submit(self._export_thread_func,
+                                   current_app._get_current_object(),
+                                   search_context)
 
             response = make_response()
             response.status_code = 250

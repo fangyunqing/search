@@ -35,7 +35,7 @@ class ProgressInfo:
 
     @property
     def value(self):
-        return math.ceil(len(self.steps) * 100 / self.count)
+        return math.floor(len(self.steps) * 100 / self.count)
 
 
 class ProgressStep(metaclass=ABCMeta):
@@ -204,13 +204,17 @@ class ProgressManager:
         self._progresses: Dict[str, Dict[str, ProgressStep]] = {}
 
     def get_progress_info(self, prefix: str, search_md5: str, suffix: str) -> ProgressInfo:
-        return self._progresses.setdefault(prefix, dict()) \
-            .setdefault(search_md5, self._create_progress_step(prefix, search_md5)) \
-            .get_progress_info(suffix)
+        progress_steps = self._progresses.setdefault(prefix, dict())
+        if search_md5 not in progress_steps:
+            progress_steps[search_md5] = self._create_progress_step(prefix, search_md5)
+        progress_step = progress_steps[search_md5]
+        return progress_step.get_progress_info(suffix)
 
     def get_progress_step(self, prefix: str, search_md5: str) -> ProgressStep:
-        return self._progresses.setdefault(prefix, dict()) \
-            .setdefault(search_md5, self._create_progress_step(prefix, search_md5))
+        progress_steps = self._progresses.setdefault(prefix, dict())
+        if search_md5 not in progress_steps:
+            progress_steps[search_md5] = self._create_progress_step(prefix, search_md5)
+        return progress_steps[search_md5]
 
     def set_new_progress_step(self, prefix: str, search_md5: str):
         self._progresses.setdefault(prefix, dict())[search_md5] = self._create_progress_step(prefix, search_md5)

@@ -46,7 +46,7 @@ class AbstractDBSearchCache(DBSearchCache):
                         select_expression = f"{select_expression} top {search_context.search.top}"
 
                 where_expression = search_buffer.where_expression
-                where_expression = where_expression.\
+                where_expression = where_expression. \
                     format(*[get_ident() for i in range(0, search_buffer.where_expression.count("{}"))])
                 sql_list.append("select")
                 sql_list.append(select_expression)
@@ -100,30 +100,8 @@ class AbstractDBSearchCache(DBSearchCache):
         finally:
             [conn.close() for conn in conn_list]
 
-        new_df = pd.DataFrame()
-        for field in search_context.search_md5.search_original_field_list:
-            for search_field in search_context.search_field_list:
-                if field != search_field.name:
-                    continue
-                try:
-                    if search_field.rule.startswith(("def", "import", "from")):
-                        md = RuntimeModule.from_string('a', search_field.rule)
-                        find = False
-                        for v in md.__dict__.values():
-                            if callable(v):
-                                new_df[field] = data_df.apply(v, axis=1)
-                                find = True
-                                break
-                        if not find:
-                            new_df[field] = None
-                            logger.warning(f"{search_context.search_md5.search_name}-{field}-rule未发现可执行函数")
-                    else:
-                        new_df[field] = data_df[search_field.rule]
-                except Exception as e:
-                    new_df[field] = ""
-                    logger.exception(e)
-
-        return new_df
+        return self.exec_new_df(search_context=search_context,
+                                df=data_df)
 
     @abstractmethod
     def count(self, conn_list: List, search_context: SearchContext, top: bool):
@@ -134,13 +112,13 @@ class AbstractDBSearchCache(DBSearchCache):
         pass
 
     @abstractmethod
-    def exec_new_df(self, search_context: SearchContext, df: pd.DataFrame):
+    def exec_new_df(self, search_context: SearchContext, df: pd.DataFrame) -> pd.DataFrame:
         pass
 
 
 class DefaultDBCache(AbstractDBSearchCache):
 
-    def exec_new_df(self, search_context: SearchContext, df: pd.DataFrame):
+    def exec_new_df(self, search_context: SearchContext, df: pd.DataFrame) -> pd.DataFrame:
         new_df = pd.DataFrame()
         for field in search_context.search_md5.search_original_field_list:
             for search_field in search_context.search_field_list:
@@ -163,6 +141,7 @@ class DefaultDBCache(AbstractDBSearchCache):
                 except Exception as e:
                     new_df[field] = ""
                     logger.exception(e)
+        return new_df
 
     execs = ["exec", "exec_new_df"]
 

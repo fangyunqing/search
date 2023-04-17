@@ -276,6 +276,8 @@ class SearchFile(db.Model, SerializerMixin):
     status = Column(String(128), default=constant.FileStatus.USABLE)
     # 文件名
     file_name = Column(String(128), nullable=True)
+    # 序号
+    order = Column(Integer, default=0)
 
 
 class SearchRecord(db.Model, SerializerMixin):
