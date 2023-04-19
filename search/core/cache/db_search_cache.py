@@ -78,21 +78,35 @@ class AbstractDBSearchCache(DBSearchCache):
                                     search_buffer=search_buffer,
                                     sql=sql,
                                     tmp_sql=tmp_sql)
-                    search_df_list.append(pd.DataFrame(data=res, columns=search_buffer.select_fields))
+                    if res:
+                        data_type = {}
+                        if len(res) > 0:
+                            data_first = res[0]
+                            for d_index, d in enumerate(data_first):
+                                if isinstance(d, int):
+                                    data_type[search_buffer.select_fields[d_index]] = "int32"
+                                elif isinstance(d, float):
+                                    data_type[search_buffer.select_fields[d_index]] = "float32"
+
+                        df = pd.DataFrame(data=res, columns=search_buffer.select_fields)
+                        if len(data_type) > 0:
+                            df.astype(data_type)
+                        search_df_list.append(df)
+
                     if search_cache_index == 0 and top:
                         break
 
                 if data_df is None:
                     if len(search_df_list) > 1:
                         data_df = pd.concat(search_df_list)
-                    else:
+                    elif len(search_df_list) == 1:
                         data_df = search_df_list[0]
                 else:
                     if len(search_df_list) > 1:
                         new_df = pd.concat(search_df_list)
                         data_df = pd.merge(left=data_df, right=new_df, how=search_buffer.search_sql.how,
                                            left_on=search_buffer.join_fields, right_on=search_buffer.join_fields)
-                    else:
+                    elif len(search_df_list) == 1:
                         new_df = search_df_list[0]
                         data_df = pd.merge(left=data_df, right=new_df, how=search_buffer.search_sql.how,
                                            left_on=search_buffer.join_fields, right_on=search_buffer.join_fields)
@@ -119,28 +133,40 @@ class AbstractDBSearchCache(DBSearchCache):
 class DefaultDBCache(AbstractDBSearchCache):
 
     def exec_new_df(self, search_context: SearchContext, df: pd.DataFrame) -> pd.DataFrame:
-        new_df = pd.DataFrame()
+        search_field_list = []
+        data_type = {}
         for field in search_context.search_md5.search_original_field_list:
             for search_field in search_context.search_field_list:
-                if field != search_field.name:
-                    continue
-                try:
-                    if search_field.rule.startswith(("def", "import", "from")):
-                        md = RuntimeModule.from_string('a', search_field.rule)
-                        find = False
-                        for v in md.__dict__.values():
-                            if callable(v):
-                                new_df[field] = df.apply(v, axis=1)
-                                find = True
-                                break
-                        if not find:
-                            new_df[field] = None
-                            logger.warning(f"{search_context.search_md5.search_name}-{field}-rule未发现可执行函数")
-                    else:
-                        new_df[field] = df[search_field.rule]
-                except Exception as e:
-                    new_df[field] = ""
-                    logger.exception(e)
+                if field == search_field.name:
+                    search_field_list.append(search_field)
+                    if search_field.datatype == "str":
+                        data_type[field] = "str"
+                    elif search_field.datatype == "int":
+                        data_type[field] = "int32"
+                    elif search_field.datatype == "float":
+                        data_type[field] = "float32"
+                    elif search_field.datatype == "date":
+                        data_type[field] = "datetime64[ns]"
+        new_df = pd.DataFrame(columns=search_context.search_md5.search_original_field_list)
+        new_df.astype(data_type)
+        for search_field in search_field_list:
+            try:
+                if search_field.rule.startswith(("def", "import", "from")):
+                    md = RuntimeModule.from_string('a', search_field.rule)
+                    find = False
+                    for v in md.__dict__.values():
+                        if callable(v):
+                            new_df[search_field.name] = df.apply(v, axis=1)
+                            find = True
+                            break
+                    if not find:
+                        new_df[search_field.name] = None
+                        logger.warning(f"{search_context.search_md5.search_name}-{search_field.name}-rule未发现可执行函数")
+                else:
+                    new_df[search_field.name] = df[search_field.rule]
+            except Exception as e:
+                new_df[search_field.name] = None
+                logger.exception(e)
         return new_df
 
     execs = ["exec", "exec_new_df"]
