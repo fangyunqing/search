@@ -7,21 +7,20 @@ __author__ = 'fyq'
 
 import math
 from abc import ABCMeta, abstractmethod
+from typing import List, Any
 
+import pandas as pd
 import redis
 import simplejson as json
 from redis import Redis
 
 from search import constant
-from typing import List, Any, Dict
-
 from search.core.json_encode import SearchEncoder
 from search.core.page import Page
 from search.core.progress import Progress
 from search.core.search_context import SearchContext
 from search.exceptions import SearchException
 from search.extend import redis_pool
-import pandas as pd
 
 
 class RedisSearchCache(metaclass=ABCMeta):

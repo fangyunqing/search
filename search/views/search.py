@@ -5,6 +5,9 @@
 
 __author__ = 'fyq'
 
+from typing import List
+
+import munch
 from flask import Blueprint, request
 from loguru import logger
 
@@ -29,30 +32,38 @@ def condition():
         models.SearchCondition.query.filter_by(search_id=search_result.id).order_by(
             models.SearchCondition.order).all()
 
+    search_condition_list: List[munch.Munch] = [munch.Munch(s.to_dict()) for s in search_condition_list]
+
     conn = dm.get_main_connection()
     if conn:
         cur = conn.cursor()
         try:
             for search_condition in search_condition_list:
-                if search_condition.datatype == "list" and \
+                if search_condition.datatype in ["list", "lookup"] and \
                         search_condition.list_values and \
                         len(search_condition.list_values) > 0:
                     try:
                         cur.execute(search_condition.list_values)
-                        search_condition.list_values = []
                         datas = cur.fetchall()
-                        for data in datas:
-                            key = None
-                            value = None
-                            if len(data) > 0:
-                                key = data[0]
-                            if len(data) > 1:
-                                value = str(data[1])
-                            if key and value:
-                                search_condition.list_values.append({
-                                    "key": key,
-                                    "value": value
-                                })
+                        search_condition.list_values = []
+                        if search_condition.datatype == "lookup":
+                            search_condition.lookup_values = []
+                            for data in datas:
+                                key = None
+                                value = None
+                                if len(data) > 0:
+                                    key = data[0]
+                                if len(data) > 1:
+                                    value = str(data[1])
+                                if key and value:
+                                    search_condition.lookup_values.append({
+                                        "key": key,
+                                        "value": value
+                                    })
+                        else:
+                            for data in datas:
+                                if len(data) > 0:
+                                    search_condition.list_values.append(str(data[0]))
                     except Exception as e:
                         logger.exception(e)
         finally:
@@ -60,9 +71,9 @@ def condition():
             conn.close()
     else:
         for search_condition in search_condition_list:
-            if search_condition.datatype == "list":
+            if search_condition.datatype in ["list", "lookup"]:
                 search_condition.list_values = []
-    return CommonResult.success(data=[s.to_dict() for s in search_condition_list])
+    return CommonResult.success(data=search_condition_list)
 
 
 @search_bp.route(rule="/field", methods=["GET"])
