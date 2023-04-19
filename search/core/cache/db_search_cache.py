@@ -89,8 +89,9 @@ class AbstractDBSearchCache(DBSearchCache):
                                     data_type[search_buffer.select_fields[d_index]] = "float32"
 
                         df = pd.DataFrame(data=res, columns=search_buffer.select_fields)
+
                         if len(data_type) > 0:
-                            df.astype(data_type)
+                            df = df.astype(data_type)
                         search_df_list.append(df)
 
                     if search_cache_index == 0 and top:
@@ -148,7 +149,7 @@ class DefaultDBCache(AbstractDBSearchCache):
                     elif search_field.datatype == "date":
                         data_type[field] = "datetime64[ns]"
         new_df = pd.DataFrame(columns=search_context.search_md5.search_original_field_list)
-        new_df.astype(data_type)
+        new_df = new_df.astype(data_type)
         for search_field in search_field_list:
             try:
                 if search_field.rule.startswith(("def", "import", "from")):
