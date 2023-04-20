@@ -106,7 +106,10 @@ class Search(ISearch):
                     else:
                         return CommonResult.fail(code=MessageCode.LAST_PAGE.code, message=MessageCode.LAST_PAGE.desc)
                 r = redis.Redis(connection_pool=redis_pool)
-                if r.setnx(name=f"{search_context.search_key}_{constant.RedisKeySuffix.SEARCH}", value=1):
+                if r.set(name=f"{search_context.search_key}_{constant.RedisKeySuffix.SEARCH}",
+                         value=1,
+                         nx=True,
+                         ex=1800):
                     progress_manager.set_new_progress_step(constant.SEARCH, search_context.search_key)
                     thread_pool.submit(self._search_thread_func,
                                        current_app._get_current_object(),
@@ -140,7 +143,11 @@ class Search(ISearch):
                                            as_attachment=True))
         else:
             r = redis.Redis(connection_pool=redis_pool)
-            if r.setnx(name=f"{search_context.search_key}_{constant.RedisKeySuffix.EXPORT}", value=1):
+            if r.set(name=f"{search_context.search_key}_{constant.RedisKeySuffix.EXPORT}",
+                     value=1,
+                     nx=True,
+                     ex=1800,
+                     ):
                 progress_manager.set_new_progress_step(constant.EXPORT, search_context.search_key)
                 thread_pool.submit(self._export_thread_func,
                                    current_app._get_current_object(),

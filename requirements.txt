@@ -23,7 +23,7 @@ MarkupSafe==2.1.2
 munch==2.5.0
 numpy==1.24.2
 openpyxl==3.1.1
-pandas==1.5.3
+pandas==2.0.0
 pycparser==2.21
 pyext==0.7
 pymssql==2.2.7

@@ -20,7 +20,10 @@ from loguru import logger
 @scheduler.task('cron', id='delete_file', minute="*/30")
 def delete_file():
     r = redis.Redis(connection_pool=redis_pool)
-    if r.setnx(constant.RedisKeySuffix.SEARCH_DELETE_FILE, value=1):
+    if r.set(constant.RedisKeySuffix.SEARCH_DELETE_FILE,
+             value=1,
+             ex=1800,
+             nx=True):
         try:
             with scheduler.app.app_context():
                 try:
