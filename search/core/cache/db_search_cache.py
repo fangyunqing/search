@@ -47,7 +47,7 @@ class AbstractDBSearchCache(DBSearchCache):
 
                 where_expression = search_buffer.where_expression
                 where_expression = where_expression. \
-                    format(*[get_ident() for i in range(0, search_buffer.where_expression.count("{}"))])
+                    format(*[get_ident() for _ in range(0, search_buffer.where_expression.count("{}"))])
                 sql_list.append("select")
                 sql_list.append(select_expression)
                 sql_list.append(",".join(search_buffer.field_list))
