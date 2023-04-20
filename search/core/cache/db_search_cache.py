@@ -164,7 +164,11 @@ class DefaultDBCache(AbstractDBSearchCache):
                         new_df[search_field.name] = None
                         logger.warning(f"{search_context.search_md5.search_name}-{search_field.name}-rule未发现可执行函数")
                 else:
-                    new_df[search_field.name] = df[search_field.rule]
+                    if search_field.rule in df:
+                        new_df[search_field.name] = df[search_field.rule]
+                    else:
+                        new_df[search_field.name] = None
+                        logger.warning(f"查询结果中未包含列[{search_field.name}]")
             except Exception as e:
                 new_df[search_field.name] = None
                 logger.exception(e)

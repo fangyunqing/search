@@ -10,7 +10,7 @@ from flask.scaffold import setupmethod
 from loguru import logger
 
 from search.database import dm
-from search.entity import CommonResult, MessageCode
+from search.entity import CommonResult, MessageCode, BeforeRequest, AfterRequest
 from search.extend import db, migrate, scheduler
 from search.models import SearchDatasource
 from search.views import search_bp, config_bp, user_bp, test_bp
@@ -37,19 +37,32 @@ def create_app():
 
     @app.before_request
     def before_request():
-        logger.info(f"请求方式:{request.method}")
-        logger.info(f"请求路径:{request.path}")
-        logger.info(f"请求地址:{request.remote_addr}")
-        logger.info(f"args:{simplejson.dumps(request.args)}")
-        logger.info(f"form:{simplejson.dumps(request.form)}")
-        logger.info(f"data:{request.data.decode()}")
+
+        br = BeforeRequest()
+        br.method = request.method
+        br.path = request.path
+        br.remote_addr = request.remote_addr
+        br.args = simplejson.dumps(request.args)
+        br.form = simplejson.dumps(request.form)
+        br.data = simplejson.dumps(request.data.decode())
+
+        logger.info(f"请求参数:{br.to_dict()}")
 
     @app.after_request
     def after_request(response: Response):
-        logger.info(f"响应路径:{request.path}")
-        if len(simplejson.dumps(response.json)) < 1024:
-            logger.info(f"响应json:{response.json}")
-        logger.info(f"响应长度:{response.content_length}")
+
+        ar = AfterRequest()
+        ar.path = request.path
+        json = simplejson.dumps(response.json)
+        if len(json) < 1024:
+            ar.json = json
+        ar.content_length = response.content_length
+        data = response.data.decode()
+        if len(data) < 1024:
+            ar.data = data
+
+        logger.info(f"响应参数:{ar.to_dict()}")
+
         return response
 
     @app.before_first_request
