@@ -6,6 +6,7 @@
 __author__ = 'fyq'
 
 from dataclasses import dataclass
+from typing import Dict
 
 from search.entity.common_result import BaseDataClass
 
@@ -23,13 +24,13 @@ class BeforeRequest(BaseDataClass):
     remote_addr: str = ""
 
     # args
-    args: str = ""
+    args: Dict = None
 
     # form
-    form: str = ""
+    form: Dict = None
 
     # data
-    data: str = ""
+    data: Dict = None
 
 
 @dataclass
@@ -38,11 +39,8 @@ class AfterRequest(BaseDataClass):
     # 响应路径
     path: str = ""
 
-    # json
-    json: str = ""
-
     # 响应长度
     content_length: int = 0
 
     # data
-    data: str = ""
+    data: Dict = ""

@@ -42,9 +42,9 @@ def create_app():
         br.method = request.method
         br.path = request.path
         br.remote_addr = request.remote_addr
-        br.args = simplejson.dumps(request.args)
-        br.form = simplejson.dumps(request.form)
-        br.data = simplejson.dumps(request.data.decode())
+        br.args = request.args
+        br.form = request.form
+        br.data = request.data.decode()
 
         logger.info(f"请求参数:{br.to_dict()}")
 
@@ -53,9 +53,6 @@ def create_app():
 
         ar = AfterRequest()
         ar.path = request.path
-        json = simplejson.dumps(response.json)
-        if len(json) < 1024:
-            ar.json = json
         ar.content_length = response.content_length
         data = response.data.decode()
         if len(data) < 1024:
