@@ -13,7 +13,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Optional, List
 
 import pandas as pd
-import simplejson
+
 from sqlalchemy import desc
 
 from search import constant

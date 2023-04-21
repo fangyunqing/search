@@ -5,8 +5,9 @@
 
 __author__ = 'fyq'
 
+
 from flask import Flask, request, Response, make_response
-from flask.scaffold import setupmethod
+
 from loguru import logger
 
 from search.database import dm
