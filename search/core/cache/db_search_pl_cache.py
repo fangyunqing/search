@@ -1,6 +1,6 @@
-# @Time    : 2023/03/11 16:23
+# @Time    : 2023/04/22 15:52
 # @Author  : fyq
-# @File    : db_search_cache.py
+# @File    : db_search_pl_cache.py
 # @Software: PyCharm
 
 __author__ = 'fyq'
@@ -15,6 +15,7 @@ from loguru import logger
 from search import dm
 
 import pandas as pd
+import polars as pl
 
 from search.core.progress import Progress
 from search.core.search_context import SearchContext, SearchBuffer
@@ -22,19 +23,19 @@ from search.core.search_context import SearchContext, SearchBuffer
 from pyext import RuntimeModule
 
 
-class DBSearchCache(metaclass=ABCMeta):
+class DBSearchPolarsCache(metaclass=ABCMeta):
 
     @abstractmethod
     def get_data(self, search_context: SearchContext) -> Optional[pd.DataFrame]:
         pass
 
 
-class AbstractDBSearchCache(DBSearchCache):
+class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
 
     def get_data(self, search_context: SearchContext, top: bool = False) -> Optional[pd.DataFrame]:
         conn_list = dm.get_connections()
         self.count(search_context=search_context, conn_list=conn_list, top=top)
-        data_df = None
+        data_df: Optional[pl.LazyFrame] = None
         try:
             for search_cache_index, search_buffer in enumerate(search_context.search_buffer_list):
                 tmp_tablename = search_buffer.tmp_tablename.format(get_ident())
@@ -84,15 +85,33 @@ class AbstractDBSearchCache(DBSearchCache):
                         break
 
                 if len(data) > 0:
-                    new_df = pd.DataFrame(data=data, columns=search_buffer.select_fields)
+                    data_type = {}
+                    expr_list = []
+                    for select_field in search_buffer.select_fields:
+                        if select_field.startswith("i"):
+                            data_type[select_field] = pl.Int32
+                        elif select_field.startswith("n"):
+                            data_type[select_field] = pl.Float32
+                        elif select_field.startswith("u"):
+                            data_type[select_field] = pl.Object
+                            expr_list.append(pl.col(select_field).apply(lambda x: str(x)).cast(pl.Utf8))
+                        elif select_field.startswith("s"):
+                            data_type[select_field] = pl.Utf8
+                        elif select_field.startswith("t"):
+                            data_type[select_field] = pl.Datetime
+                        elif select_field.startswith("d"):
+                            data_type[select_field] = pl.Date
+                    # 构建Lazy
+                    new_df = pl.LazyFrame(data=data, schema=data_type).with_columns(*expr_list)
+                    # 释放内存
                     del data
                     if data_df is None:
                         data_df = new_df
                     else:
-                        data_df = data_df.merge(right=new_df,
-                                                how=search_buffer.search_sql.how,
-                                                left_on=search_buffer.join_fields,
-                                                right_on=search_buffer.join_fields)
+                        data_df = data_df.join(other=new_df,
+                                               how=search_buffer.search_sql.how,
+                                               left_on=search_buffer.join_fields,
+                                               right_on=search_buffer.join_fields)
         finally:
             [conn.close() for conn in conn_list]
 
@@ -108,16 +127,16 @@ class AbstractDBSearchCache(DBSearchCache):
         pass
 
     @abstractmethod
-    def exec_new_df(self, search_context: SearchContext, df: pd.DataFrame) -> pd.DataFrame:
+    def exec_new_df(self, search_context: SearchContext, df: pl.LazyFrame) -> pd.DataFrame:
         pass
 
 
-class DefaultDBCache(AbstractDBSearchCache):
+class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
 
-    def exec_new_df(self, search_context: SearchContext, df: pd.DataFrame) -> pd.DataFrame:
+    def exec_new_df(self, search_context: SearchContext, df: pl.LazyFrame) -> pd.DataFrame:
         search_field_dict = {search_field.name: search_field
                              for search_field in search_context.search_field_list}
-        new_df = pd.DataFrame(columns=search_context.search_md5.search_original_field_list)
+        expr_list = []
         for field in search_context.search_md5.search_original_field_list:
             if field in search_field_dict:
                 search_field = search_field_dict[field]
@@ -127,25 +146,34 @@ class DefaultDBCache(AbstractDBSearchCache):
                         find = False
                         for v in md.__dict__.values():
                             if callable(v):
-                                new_df[search_field.name] = df.apply(v, axis=1)
+                                expr_list.append(pl.all().apply(v).alias(field))
                                 find = True
                                 break
                         if not find:
-                            new_df[search_field.name] = None
+                            expr_list.append(pl.lit(None).alias(field))
                             logger.warning(f"{search_context.search_md5.search_name}-{search_field.name}-rule未发现可执行函数")
                     else:
-                        if search_field.rule in df:
-                            new_df[search_field.name] = df[search_field.rule]
+                        if field in df:
+                            expr_list.append(pl.col(field))
                         else:
-                            new_df[search_field.name] = None
+                            expr_list.append(pl.lit(None).alias(field))
                             logger.warning(f"查询结果中未包含列[{search_field.name}]")
                 except Exception as e:
-                    new_df[search_field.name] = None
+                    expr_list.append(pl.lit(None).alias(field))
                     logger.exception(e)
+                expr = expr_list[-1]
+                if search_field.datatype == "str":
+                    expr.cast(pl.Utf8)
+                elif search_field.datatype == "int":
+                    expr.cast(pl.Int32)
+                elif search_field.datatype == "float":
+                    expr.cast(pl.Float32)
+                elif search_field.datatype == "date":
+                    expr.cast(pl.Datetime)
             else:
-                new_df[field] = None
+                expr_list.append(pl.lit(None).alias(field))
 
-        return new_df
+        return df.with_columns(*expr_list).collect().to_pandas()
 
     execs = ["exec", "exec_new_df"]
 
@@ -175,10 +203,10 @@ class DefaultDBCache(AbstractDBSearchCache):
 
 
 @Progress(prefix="export", suffix="db")
-class DefaultDBExportCache(DefaultDBCache):
+class DefaultDBExportPolarsCache(DefaultDBPolarsCache):
     pass
 
 
 @Progress(prefix="search", suffix="db")
-class DefaultDBSearchCache(DefaultDBCache):
+class DefaultDBSearchPolarsCache(DefaultDBPolarsCache):
     pass
