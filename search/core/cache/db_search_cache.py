@@ -71,7 +71,7 @@ class AbstractDBSearchCache(DBSearchCache):
                 sql = " ".join(sql_list)
                 tmp_sql = " ".join(tmp_sql_list)
 
-                search_df_list: List[pd.DataFrame] = []
+                data = []
                 for conn in conn_list:
                     res = self.exec(conn=conn,
                                     search_context=search_context,
@@ -79,38 +79,20 @@ class AbstractDBSearchCache(DBSearchCache):
                                     sql=sql,
                                     tmp_sql=tmp_sql)
                     if res:
-                        data_type = {}
-                        if len(res) > 0:
-                            data_first = res[0]
-                            for d_index, d in enumerate(data_first):
-                                if isinstance(d, int):
-                                    data_type[search_buffer.select_fields[d_index]] = "int32"
-                                elif isinstance(d, float):
-                                    data_type[search_buffer.select_fields[d_index]] = "float32"
-
-                        df = pd.DataFrame(data=res, columns=search_buffer.select_fields)
-
-                        if len(data_type) > 0:
-                            df = df.astype(data_type)
-                        search_df_list.append(df)
-
+                        data.extend(res)
                     if search_cache_index == 0 and top:
                         break
 
-                if data_df is None:
-                    if len(search_df_list) > 1:
-                        data_df = pd.concat(search_df_list)
-                    elif len(search_df_list) == 1:
-                        data_df = search_df_list[0]
-                else:
-                    if len(search_df_list) > 1:
-                        new_df = pd.concat(search_df_list)
-                        data_df = pd.merge(left=data_df, right=new_df, how=search_buffer.search_sql.how,
-                                           left_on=search_buffer.join_fields, right_on=search_buffer.join_fields)
-                    elif len(search_df_list) == 1:
-                        new_df = search_df_list[0]
-                        data_df = pd.merge(left=data_df, right=new_df, how=search_buffer.search_sql.how,
-                                           left_on=search_buffer.join_fields, right_on=search_buffer.join_fields)
+                if len(data) > 0:
+                    new_df = pd.DataFrame(data=data, columns=search_buffer.select_fields)
+                    if data_df is None:
+                        data_df = new_df
+                    else:
+                        data_df = data_df.merge(right=new_df,
+                                                how=search_buffer.search_sql.how,
+                                                left_on=search_buffer.join_fields,
+                                                right_on=search_buffer.join_fields)
+                    del data
 
         finally:
             [conn.close() for conn in conn_list]
