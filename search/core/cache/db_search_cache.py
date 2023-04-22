@@ -116,44 +116,36 @@ class AbstractDBSearchCache(DBSearchCache):
 class DefaultDBCache(AbstractDBSearchCache):
 
     def exec_new_df(self, search_context: SearchContext, df: pd.DataFrame) -> pd.DataFrame:
-        search_field_list = []
-        data_type = {}
-        for field in search_context.search_md5.search_original_field_list:
-            for search_field in search_context.search_field_list:
-                if field == search_field.name:
-                    search_field_list.append(search_field)
-                    if search_field.datatype == "str":
-                        data_type[field] = "str"
-                    elif search_field.datatype == "int":
-                        data_type[field] = "int32"
-                    elif search_field.datatype == "float":
-                        data_type[field] = "float32"
-                    elif search_field.datatype == "date":
-                        data_type[field] = "datetime64[ns]"
+        search_field_dict = {search_field.name: search_field
+                             for search_field in search_context.search_field_list}
         new_df = pd.DataFrame(columns=search_context.search_md5.search_original_field_list)
-        new_df = new_df.astype(data_type)
-        for search_field in search_field_list:
-            try:
-                if search_field.rule.startswith(("def", "import", "from")):
-                    md = RuntimeModule.from_string('a', search_field.rule)
-                    find = False
-                    for v in md.__dict__.values():
-                        if callable(v):
-                            new_df[search_field.name] = df.apply(v, axis=1)
-                            find = True
-                            break
-                    if not find:
-                        new_df[search_field.name] = None
-                        logger.warning(f"{search_context.search_md5.search_name}-{search_field.name}-rule未发现可执行函数")
-                else:
-                    if search_field.rule in df:
-                        new_df[search_field.name] = df[search_field.rule]
+        for field in search_context.search_md5.search_original_field_list:
+            if field in search_field_dict:
+                search_field = search_field_dict[field]
+                try:
+                    if search_field.rule.startswith(("def", "import", "from")):
+                        md = RuntimeModule.from_string('a', search_field.rule)
+                        find = False
+                        for v in md.__dict__.values():
+                            if callable(v):
+                                new_df[search_field.name] = df.apply(v, axis=1)
+                                find = True
+                                break
+                        if not find:
+                            new_df[search_field.name] = None
+                            logger.warning(f"{search_context.search_md5.search_name}-{search_field.name}-rule未发现可执行函数")
                     else:
-                        new_df[search_field.name] = None
-                        logger.warning(f"查询结果中未包含列[{search_field.name}]")
-            except Exception as e:
-                new_df[search_field.name] = None
-                logger.exception(e)
+                        if search_field.rule in df:
+                            new_df[search_field.name] = df[search_field.rule]
+                        else:
+                            new_df[search_field.name] = None
+                            logger.warning(f"查询结果中未包含列[{search_field.name}]")
+                except Exception as e:
+                    new_df[search_field.name] = None
+                    logger.exception(e)
+            else:
+                new_df[field] = None
+
         return new_df
 
     execs = ["exec", "exec_new_df"]
