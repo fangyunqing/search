@@ -10,7 +10,8 @@ from abc import ABCMeta, abstractmethod
 from typing import Optional, List
 
 import pandas as pd
-from sqlalchemy import desc
+from loguru import logger
+from sqlalchemy import asc
 
 from search import models, constant
 from search.core.search_context import SearchContext
@@ -30,7 +31,7 @@ class DefaultCSVExportCache(CSVExportCache):
             models.SearchFile.query.filter_by(search_md5=search_context.search_key,
                                               use=constant.SEARCH,
                                               status=constant.FileStatus.USABLE) \
-                                   .order_by(desc(models.SearchFile.create_time)) \
+                                   .order_by(asc(models.SearchFile.order)) \
                                    .all()
         res = [search_file and os.path.isfile(search_file.path) for search_file in search_file_list]
         if all(res):
@@ -39,3 +40,5 @@ class DefaultCSVExportCache(CSVExportCache):
                 df_list.append(pd.read_csv(filepath_or_buffer=search_file.path, sep="`"))
             if len(df_list) > 0:
                 return pd.concat(df_list)
+        else:
+            logger.warning(f"{search_context.search_key}-{len(search_file_list)}无法查询到缓存文件")

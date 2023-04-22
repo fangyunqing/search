@@ -41,6 +41,3 @@ class AfterRequest(BaseDataClass):
 
     # 响应长度
     content_length: int = 0
-
-    # data
-    data: Dict = ""
