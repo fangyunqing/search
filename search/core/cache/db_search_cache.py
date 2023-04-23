@@ -91,8 +91,8 @@ class AbstractDBSearchCache(DBSearchCache):
                     else:
                         data_df = data_df.merge(right=new_df,
                                                 how=search_buffer.search_sql.how,
-                                                left_on=search_buffer.join_fields,
-                                                right_on=search_buffer.join_fields)
+                                                on=search_buffer.join_fields)
+                        del new_df
         finally:
             [conn.close() for conn in conn_list]
 

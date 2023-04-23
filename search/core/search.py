@@ -55,9 +55,9 @@ class Search(ISearch):
         # tar导出
         self._tar_export_cache = DefaultTarExportCache()
         # db查询
-        self._db_search_cache = DefaultDBSearchPolarsCache()
+        self._db_search_cache = DefaultDBSearchCache()
         # db导出
-        self._db_export_cache = DefaultDBExportPolarsCache()
+        self._db_export_cache = DefaultDBExportCache()
 
     def search(self, data: str) -> dict:
         """
