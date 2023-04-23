@@ -101,6 +101,8 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                             data_type[select_field] = pl.Datetime
                         elif select_field.startswith("d"):
                             data_type[select_field] = pl.Date
+                        elif select_field.startswith("b"):
+                            data_type[select_field] = pl.Boolean
                     # 构建Lazy
                     new_df = pl.LazyFrame(data=data, schema=data_type).with_columns(*expr_list)
                     # 释放内存
@@ -138,6 +140,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                              for search_field in search_context.search_field_list}
         expr_list = []
         for field in search_context.search_md5.search_original_field_list:
+            new_field = "col_" + field
             if field in search_field_dict:
                 search_field = search_field_dict[field]
                 try:
@@ -146,20 +149,20 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                         find = False
                         for v in md.__dict__.values():
                             if callable(v):
-                                expr_list.append(pl.all().apply(v).alias(field))
+                                expr_list.append(pl.lit(None).alias(new_field))
                                 find = True
                                 break
                         if not find:
-                            expr_list.append(pl.lit(None).alias(field))
+                            expr_list.append(pl.lit(None).alias(new_field))
                             logger.warning(f"{search_context.search_md5.search_name}-{search_field.name}-rule未发现可执行函数")
                     else:
                         if field in df:
-                            expr_list.append(pl.col(field))
+                            expr_list.append(pl.col(field).alias(new_field))
                         else:
-                            expr_list.append(pl.lit(None).alias(field))
+                            expr_list.append(pl.lit(None).alias(new_field))
                             logger.warning(f"查询结果中未包含列[{search_field.name}]")
                 except Exception as e:
-                    expr_list.append(pl.lit(None).alias(field))
+                    expr_list.append(pl.lit(None).alias(new_field))
                     logger.exception(e)
                 expr = expr_list[-1]
                 if search_field.datatype == "str":
@@ -167,13 +170,17 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                 elif search_field.datatype == "int":
                     expr.cast(pl.Int32)
                 elif search_field.datatype == "float":
-                    expr.cast(pl.Float32)
+                    expr.cast(pl.Decimal)
                 elif search_field.datatype == "date":
                     expr.cast(pl.Datetime)
             else:
-                expr_list.append(pl.lit(None).alias(field))
+                expr_list.append(pl.lit(None).alias(new_field))
 
-        return df.with_columns(*expr_list).collect().to_pandas()
+        df = df.with_columns(*expr_list)\
+            .select(["col_" + field for field in search_context.search_md5.search_original_field_list]) \
+            .collect()
+        df.columns = search_context.search_md5.search_original_field_list
+        return df.to_pandas(use_pyarrow_extension_array=True)
 
     execs = ["exec", "exec_new_df"]
 
