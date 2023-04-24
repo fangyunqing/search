@@ -55,7 +55,7 @@ class Search(ISearch):
         # tar导出
         self._tar_export_cache = DefaultTarExportCache()
         # db查询
-        self._db_search_cache = DefaultDBSearchCache()
+        self._db_search_cache = DefaultDBSearchPolarsCache()
         # db导出
         self._db_export_cache = DefaultDBExportCache()
 

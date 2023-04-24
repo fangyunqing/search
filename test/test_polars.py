@@ -31,17 +31,6 @@ class TestPolars(unittest.TestCase):
 
         print(df.collect().to_pandas())
 
-        def a():
-            v = ["a", "b"]
-            for vv in v:
-                yield vv
-
-        def c(f):
-            for ff in f:
-                yield ff
-            return None
-
-        for aa in c(a()):
-            print(aa)
+        pl.scan_parquet()
 
 

@@ -5,6 +5,9 @@
 
 __author__ = 'fyq'
 
+import os
+import shutil
+import uuid
 from abc import ABCMeta, abstractmethod
 from threading import get_ident
 from typing import Optional, List, Any
@@ -36,7 +39,10 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
         conn_list = dm.get_connections()
         self.count(search_context=search_context, conn_list=conn_list, top=top)
         data_df: Optional[pl.LazyFrame] = None
+        tmp_file = f"{search_context.cache_dir}{os.sep}tmp{os.sep}{uuid.uuid4()}"
         try:
+            os.makedirs(tmp_file, exist_ok=True)
+            file_info_list = []
             for search_cache_index, search_buffer in enumerate(search_context.search_buffer_list):
                 tmp_tablename = search_buffer.tmp_tablename.format(get_ident())
                 sql_list: List[str] = []
@@ -72,53 +78,91 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                 sql = " ".join(sql_list)
                 tmp_sql = " ".join(tmp_sql_list)
 
-                data = []
+                # 类型判断
+                data_type = {}
+                expr_list = []
+                for select_field in search_buffer.select_fields:
+                    if select_field.startswith("i"):
+                        data_type[select_field] = pl.Int32
+                    elif select_field.startswith("n"):
+                        data_type[select_field] = pl.Float32
+                    elif select_field.startswith("u"):
+                        data_type[select_field] = pl.Object
+                        expr_list.append(pl.col(select_field).apply(lambda x: str(x)).cast(pl.Utf8))
+                    elif select_field.startswith("s"):
+                        data_type[select_field] = pl.Utf8
+                    elif select_field.startswith("t"):
+                        data_type[select_field] = pl.Datetime
+                    elif select_field.startswith("d"):
+                        data_type[select_field] = pl.Date
+                    elif select_field.startswith("b"):
+                        data_type[select_field] = pl.Boolean
+                # 创建多级文件夹
+                index = 0
+                file_info_list.append({
+                    "file": f"{tmp_file}{os.sep}{search_buffer.search_sql.name}",
+                    "search_buffer": search_buffer
+                })
                 for conn in conn_list:
                     res = self.exec(conn=conn,
                                     search_context=search_context,
                                     search_buffer=search_buffer,
                                     sql=sql,
                                     tmp_sql=tmp_sql)
-                    if res:
-                        data.extend(res)
+                    for r in res:
+                        file = f"{tmp_file}{os.sep}{search_buffer.search_sql.name}-{index}.parquet"
+                        pl.DataFrame(data=r, schema=data_type).with_columns(*expr_list).write_parquet(file)
+                        index += 1
                     if search_cache_index == 0 and top:
                         break
+                #
+                # if len(data) > 0:
+                #     data_type = {}
+                #     expr_list = []
+                #     for select_field in search_buffer.select_fields:
+                #         if select_field.startswith("i"):
+                #             data_type[select_field] = pl.Int32
+                #         elif select_field.startswith("n"):
+                #             data_type[select_field] = pl.Float32
+                #         elif select_field.startswith("u"):
+                #             data_type[select_field] = pl.Object
+                #             expr_list.append(pl.col(select_field).apply(lambda x: str(x)).cast(pl.Utf8))
+                #         elif select_field.startswith("s"):
+                #             data_type[select_field] = pl.Utf8
+                #         elif select_field.startswith("t"):
+                #             data_type[select_field] = pl.Datetime
+                #         elif select_field.startswith("d"):
+                #             data_type[select_field] = pl.Date
+                #         elif select_field.startswith("b"):
+                #             data_type[select_field] = pl.Boolean
+                #     # 构建Lazy
+                #     new_df = pl.LazyFrame(data=data, schema=data_type).with_columns(*expr_list)
+                #     # 释放内存
+                #     del data
+                #     if data_df is None:
+                #         data_df = new_df
+                #     else:
+                #         data_df = data_df.join(other=new_df,
+                #                                how=search_buffer.search_sql.how,
+                #                                left_on=search_buffer.join_fields,
+                #                                right_on=search_buffer.join_fields)
 
-                if len(data) > 0:
-                    data_type = {}
-                    expr_list = []
-                    for select_field in search_buffer.select_fields:
-                        if select_field.startswith("i"):
-                            data_type[select_field] = pl.Int32
-                        elif select_field.startswith("n"):
-                            data_type[select_field] = pl.Float32
-                        elif select_field.startswith("u"):
-                            data_type[select_field] = pl.Object
-                            expr_list.append(pl.col(select_field).apply(lambda x: str(x)).cast(pl.Utf8))
-                        elif select_field.startswith("s"):
-                            data_type[select_field] = pl.Utf8
-                        elif select_field.startswith("t"):
-                            data_type[select_field] = pl.Datetime
-                        elif select_field.startswith("d"):
-                            data_type[select_field] = pl.Date
-                        elif select_field.startswith("b"):
-                            data_type[select_field] = pl.Boolean
-                    # 构建Lazy
-                    new_df = pl.LazyFrame(data=data, schema=data_type).with_columns(*expr_list)
-                    # 释放内存
-                    del data
-                    if data_df is None:
-                        data_df = new_df
-                    else:
-                        data_df = data_df.join(other=new_df,
-                                               how=search_buffer.search_sql.how,
-                                               left_on=search_buffer.join_fields,
-                                               right_on=search_buffer.join_fields)
+            for file_info_index, file_info in enumerate(file_info_list):
+                if file_info_index == 0:
+                    data_df = pl.scan_parquet(f"{file_info.get('file')}*.parquet")
+                else:
+                    new_df = pl.scan_parquet(f"{file_info.get('file')}*.parquet")
+                    data_df = data_df.join(other=new_df,
+                                           how=file_info.get('search_buffer').search_sql.how,
+                                           on=file_info.get('search_buffer').join_fields)
+
+            return self.exec_new_df(search_context=search_context,
+                                    df=data_df)
         finally:
             [conn.close() for conn in conn_list]
+            shutil.rmtree(tmp_file)
 
-        return self.exec_new_df(search_context=search_context,
-                                df=data_df)
+
 
     @abstractmethod
     def count(self, conn_list: List, search_context: SearchContext, top: bool):
@@ -176,7 +220,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
             else:
                 expr_list.append(pl.lit(None).alias(new_field))
 
-        df = df.with_columns(*expr_list)\
+        df = df.with_columns(*expr_list) \
             .select(["col_" + field for field in search_context.search_md5.search_original_field_list]) \
             .collect()
         df.columns = search_context.search_md5.search_original_field_list
@@ -199,7 +243,12 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                 cur.execute(tmp_sql, tuple(search_buffer.args))
             logger.info(f"查询表sql:{sql} 参数:{search_buffer.args}")
             cur.execute(sql, tuple(search_buffer.args))
-            return cur.fetchall()
+            while True:
+                data = cur.fetchmany(100000)
+                if data:
+                    yield data
+                else:
+                    break
         except Exception as e:
             if hasattr(e, "args") and e.args[0] != 208:
                 raise e
