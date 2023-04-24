@@ -160,9 +160,7 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                                     df=data_df)
         finally:
             [conn.close() for conn in conn_list]
-            shutil.rmtree(tmp_file)
-
-
+            # shutil.rmtree(tmp_file)
 
     @abstractmethod
     def count(self, conn_list: List, search_context: SearchContext, top: bool):
