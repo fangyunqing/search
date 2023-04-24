@@ -21,6 +21,8 @@ from search.core.search_context import SearchContext, SearchBuffer
 
 from pyext import RuntimeModule
 
+from search.util.bytes import format_bytes
+
 
 class DBSearchCache(metaclass=ABCMeta):
 
@@ -93,6 +95,7 @@ class AbstractDBSearchCache(DBSearchCache):
                                                 how=search_buffer.search_sql.how,
                                                 on=search_buffer.join_fields)
                         del new_df
+                    logger.info(f"内存:{format_bytes(data_df.memory_usage(deep=True).sum())}")
         finally:
             [conn.close() for conn in conn_list]
 

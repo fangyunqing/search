@@ -10,6 +10,7 @@ import math
 import time
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
+from inspect import isgeneratorfunction
 from typing import List, Dict, Tuple, Optional
 
 import redis
@@ -152,7 +153,12 @@ class Progress:
             search_md5 = search_local.get_value(constant.SEARCH_MD5)
             try:
                 begin_time = time.perf_counter()
-                res = f(*args, **kwargs)
+                res = None
+                if isgeneratorfunction(f):
+                    for data in f(*args, **kwargs):
+                        yield data
+                else:
+                    res = f(*args, **kwargs)
                 end_time = time.perf_counter() - begin_time
                 if search_md5:
                     progress_step = progress_manager.get_progress_step(self._prefix, search_md5)

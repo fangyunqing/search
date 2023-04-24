@@ -29,8 +29,19 @@ class TestPolars(unittest.TestCase):
 
         df = pl.LazyFrame(data=data, schema={"sColorName": pl.Utf8, "naa": pl.Decimal,  "uuid": pl.Object})
 
-        def abc(row):
-            pass
-
         print(df.collect().to_pandas())
+
+        def a():
+            v = ["a", "b"]
+            for vv in v:
+                yield vv
+
+        def c(f):
+            for ff in f:
+                yield ff
+            return None
+
+        for aa in c(a()):
+            print(aa)
+
 

@@ -9,12 +9,12 @@ import copy
 import hashlib
 import time
 from abc import ABCMeta, abstractmethod
-from concurrent.futures import Future
 from dataclasses import dataclass, field
 from typing import List, Dict, Set
 
 import redis
 import simplejson
+from flask import current_app
 from munch import Munch
 from sortedcontainers import SortedKeyList
 
@@ -71,6 +71,8 @@ class SearchContext(BaseDataClass):
     search_key: str = None
     # 查询缓存建
     search_buffer_list: List[Munch] = field(default_factory=lambda: [])
+    # 缓存目录
+    cache_dir: str = None
 
 
 class ISearchContextManager(metaclass=ABCMeta):
@@ -176,6 +178,7 @@ class SearchContextManager(ISearchContextManager):
                 sc.search_field_list = [Munch(search_field.to_dict()) for search_field in search_field_list]
                 sc.search_condition_dict = {search_condition.name: Munch(search_condition.to_dict())
                                             for search_condition in search_condition_list}
+                sc.cache_dir = current_app.config.setdefault("FILE_DIR", constant.DEFAULT_FILE_DIR)
 
                 self._field(search_context=sc, search_md5=search_md5)
                 self._condition(search_context=sc, search_md5=search_md5)
