@@ -115,46 +115,19 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                         index += 1
                     if search_cache_index == 0 and top:
                         break
-                #
-                # if len(data) > 0:
-                #     data_type = {}
-                #     expr_list = []
-                #     for select_field in search_buffer.select_fields:
-                #         if select_field.startswith("i"):
-                #             data_type[select_field] = pl.Int32
-                #         elif select_field.startswith("n"):
-                #             data_type[select_field] = pl.Float32
-                #         elif select_field.startswith("u"):
-                #             data_type[select_field] = pl.Object
-                #             expr_list.append(pl.col(select_field).apply(lambda x: str(x)).cast(pl.Utf8))
-                #         elif select_field.startswith("s"):
-                #             data_type[select_field] = pl.Utf8
-                #         elif select_field.startswith("t"):
-                #             data_type[select_field] = pl.Datetime
-                #         elif select_field.startswith("d"):
-                #             data_type[select_field] = pl.Date
-                #         elif select_field.startswith("b"):
-                #             data_type[select_field] = pl.Boolean
-                #     # 构建Lazy
-                #     new_df = pl.LazyFrame(data=data, schema=data_type).with_columns(*expr_list)
-                #     # 释放内存
-                #     del data
-                #     if data_df is None:
-                #         data_df = new_df
-                #     else:
-                #         data_df = data_df.join(other=new_df,
-                #                                how=search_buffer.search_sql.how,
-                #                                left_on=search_buffer.join_fields,
-                #                                right_on=search_buffer.join_fields)
 
             for file_info_index, file_info in enumerate(file_info_list):
-                if file_info_index == 0:
-                    data_df = pl.scan_parquet(f"{file_info.get('file')}*.parquet")
-                else:
-                    new_df = pl.scan_parquet(f"{file_info.get('file')}*.parquet")
-                    data_df = data_df.join(other=new_df,
-                                           how=file_info.get('search_buffer').search_sql.how,
-                                           on=file_info.get('search_buffer').join_fields)
+                try:
+                    if file_info_index == 0:
+                        data_df = pl.scan_parquet(f"{file_info.get('file')}*.parquet")
+                    else:
+                        new_df = pl.scan_parquet(f"{file_info.get('file')}*.parquet")
+                        data_df = data_df.join(other=new_df,
+                                               how=file_info.get('search_buffer').search_sql.how,
+                                               on=file_info.get('search_buffer').join_fields)
+                except FileNotFoundError as e:
+                    if file_info_index == 0:
+                        raise e
 
             return self.exec_new_df(search_context=search_context,
                                     df=data_df)
