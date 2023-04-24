@@ -242,7 +242,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
             logger.info(f"查询表sql:{sql} 参数:{search_buffer.args}")
             cur.execute(sql, tuple(search_buffer.args))
             while True:
-                data = cur.fetchmany(500000)
+                data = cur.fetchmany(100000)
                 if data:
                     yield data
                 else:
