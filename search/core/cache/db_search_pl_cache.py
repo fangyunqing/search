@@ -160,7 +160,7 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                                     df=data_df)
         finally:
             [conn.close() for conn in conn_list]
-            # shutil.rmtree(tmp_file)
+            shutil.rmtree(tmp_file)
 
     @abstractmethod
     def count(self, conn_list: List, search_context: SearchContext, top: bool):
@@ -242,7 +242,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
             logger.info(f"查询表sql:{sql} 参数:{search_buffer.args}")
             cur.execute(sql, tuple(search_buffer.args))
             while True:
-                data = cur.fetchmany(100000)
+                data = cur.fetchmany(500000)
                 if data:
                     yield data
                 else:
