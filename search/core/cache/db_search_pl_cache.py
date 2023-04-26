@@ -85,7 +85,7 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                     if select_field.startswith("i"):
                         data_type[select_field] = pl.Int32
                     elif select_field.startswith("n"):
-                        data_type[select_field] = pl.Float32
+                        data_type[select_field] = pl.Decimal
                     elif select_field.startswith("u"):
                         data_type[select_field] = pl.Object
                         expr_list.append(pl.col(select_field).apply(lambda x: str(x)).cast(pl.Utf8))
