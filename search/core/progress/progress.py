@@ -100,7 +100,7 @@ class ProgressStep(metaclass=ABCMeta):
 class SearchProgressStep(ProgressStep):
 
     def _steps(self) -> List[Tuple[str, str]]:
-        return [("db", "数据查询中"), ("redis_o_csv", "数据打包中")]
+        return [("db", "数据查询中"), ("redis_o_file", "数据打包中")]
 
 
 class ExportProgressStep(ProgressStep):
@@ -181,7 +181,7 @@ class Progress:
                         progress_info.records.append(search_record)
 
                         r = redis.Redis(connection_pool=redis_pool)
-                        r.setex(name=f"{self._prefix}_{search_md5}",
+                        r.setex(name=f"{constant.RedisKey.PROGRESS_LOCK_PREFIX}_{self._prefix}_{search_md5}",
                                 value=simplejson.dumps(progress_step.info),
                                 time=43200)
 
@@ -233,7 +233,7 @@ class ProgressManager:
     @classmethod
     def get_progress_step_info(cls, prefix: str, search_md5: str) -> Optional[Dict]:
         r = redis.Redis(connection_pool=redis_pool)
-        value: bytes = r.get(name=f"{prefix}_{search_md5}")
+        value: bytes = r.get(name=f"{constant.RedisKey.PROGRESS_LOCK_PREFIX}_{prefix}_{search_md5}")
         if value:
             return simplejson.loads(value.decode())
         else:
@@ -244,7 +244,7 @@ class ProgressManager:
         if prefix == constant.SEARCH:
             sp = SearchProgressStep()
             r = redis.Redis(connection_pool=redis_pool)
-            r.setex(name=f"{prefix}_{search_md5}",
+            r.setex(name=f"{constant.RedisKey.PROGRESS_LOCK_PREFIX}_{prefix}_{search_md5}",
                     value=simplejson.dumps(sp.info),
                     time=43200)
             return sp
@@ -252,7 +252,7 @@ class ProgressManager:
         else:
             ep = ExportProgressStep()
             r = redis.Redis(connection_pool=redis_pool)
-            r.setex(name=f"{prefix}_{search_md5}",
+            r.setex(name=f"{constant.RedisKey.PROGRESS_LOCK_PREFIX}_{prefix}_{search_md5}",
                     value=simplejson.dumps(ep.info),
                     time=43200)
             return ep

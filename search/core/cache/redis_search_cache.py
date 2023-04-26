@@ -115,6 +115,6 @@ class CommonRedisSearchCache(AbstractRedisSearchCache):
                 value=data)
 
 
-@Progress(prefix="search", suffix="redis_o_csv")
+@Progress(prefix="search", suffix="redis_o_file")
 class DefaultRedisSearchCache(CommonRedisSearchCache):
     pass

@@ -126,7 +126,7 @@ class AbstractParquetSearchCache(ParquetSearchCache):
         pass
 
 
-@Progress(prefix="search", suffix="redis_o_csv")
+@Progress(prefix="search", suffix="redis_o_file")
 class DefaultParquetSearchCache(AbstractParquetSearchCache):
     execs = ["exec", "exec_page"]
 

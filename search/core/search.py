@@ -106,14 +106,17 @@ class Search(ISearch):
                     else:
                         return CommonResult.fail(code=MessageCode.LAST_PAGE.code, message=MessageCode.LAST_PAGE.desc)
                 r = redis.Redis(connection_pool=redis_pool)
-                if r.set(name=f"{search_context.search_key}_{constant.RedisKey.SEARCH}",
+                thread_key = f"{constant.RedisKey.THREAD_LOCK_PREFIX}" \
+                             f"_{constant.RedisKey.SEARCH}_{search_context.search_key}"
+                if r.set(name=thread_key,
                          value=1,
                          nx=True,
                          ex=1800):
                     progress_manager.set_new_progress_step(constant.SEARCH, search_context.search_key)
                     thread_pool.submit(self._search_thread_func,
                                        current_app._get_current_object(),
-                                       search_context)
+                                       search_context)\
+                        .add_done_callback(lambda f: r.delete(thread_key))
         if data is None:
             return CommonResult.fail(code=MessageCode.NOT_READY.code, message=MessageCode.NOT_READY.desc)
         else:
@@ -143,7 +146,9 @@ class Search(ISearch):
                                            as_attachment=True))
         else:
             r = redis.Redis(connection_pool=redis_pool)
-            if r.set(name=f"{search_context.search_key}_{constant.RedisKey.EXPORT}",
+            thread_key = f"{constant.RedisKey.THREAD_LOCK_PREFIX}" \
+                         f"_{constant.RedisKey.EXPORT}_{search_context.search_key}"
+            if r.set(name=thread_key,
                      value=1,
                      nx=True,
                      ex=1800,
@@ -151,7 +156,8 @@ class Search(ISearch):
                 progress_manager.set_new_progress_step(constant.EXPORT, search_context.search_key)
                 thread_pool.submit(self._export_thread_func,
                                    current_app._get_current_object(),
-                                   search_context)
+                                   search_context)\
+                    .add_done_callback(lambda f: r.delete(thread_key))
 
             response = make_response()
             response.status_code = 250
@@ -175,9 +181,6 @@ class Search(ISearch):
                                                           whole=True)
         except Exception as e:
             logger.exception(e)
-        finally:
-            r = redis.Redis(connection_pool=redis_pool)
-            r.delete(f"{search_context.search_key}_{constant.RedisKey.SEARCH}")
 
     def _export_thread_func(self, app: Flask, search_context: SearchContext):
         try:
@@ -193,9 +196,6 @@ class Search(ISearch):
                                                     file_dir=file_dir)
         except Exception as e:
             logger.exception(e)
-        finally:
-            r = redis.Redis(connection_pool=redis_pool)
-            r.delete(f"{search_context.search_key}_{constant.RedisKey.EXPORT}")
 
     def export_progress(self, data: str) -> dict:
         data = json.loads(data)

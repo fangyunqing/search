@@ -102,7 +102,7 @@ class SearchContextManager(ISearchContextManager):
 
         r = redis.Redis(connection_pool=redis_pool)
 
-        while not r.setnx(name=constant.RedisKey.SEARCH_CONTEXT, value=1):
+        while not r.setnx(name=constant.RedisKey.SEARCH_CONTEXT_LOCK, value=1):
             time.sleep(100)
 
         try:
@@ -195,11 +195,11 @@ class SearchContextManager(ISearchContextManager):
 
                 return sc
         finally:
-            r.delete(constant.RedisKey.SEARCH_CONTEXT)
+            r.delete(constant.RedisKey.SEARCH_CONTEXT_LOCK)
 
     def delete_search_context(self, search_name: str):
         r = redis.Redis(connection_pool=redis_pool)
-        while not r.setnx(name=constant.RedisKey.SEARCH_CONTEXT, value=1):
+        while not r.setnx(name=constant.RedisKey.SEARCH_CONTEXT_LOCK, value=1):
             time.sleep(100)
         try:
             search: models.Search = \
@@ -208,7 +208,7 @@ class SearchContextManager(ISearchContextManager):
             if len(all_keys) > 0:
                 r.delete(*all_keys)
         finally:
-            r.delete(constant.RedisKey.SEARCH_CONTEXT)
+            r.delete(constant.RedisKey.SEARCH_CONTEXT_LOCK)
 
     @classmethod
     def _condition(cls, search_context: SearchContext, search_md5: SearchMd5):
