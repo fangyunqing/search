@@ -57,7 +57,7 @@ class Search(ISearch):
         # db查询
         self._db_search_cache = DefaultDBSearchPolarsCache()
         # db导出
-        self._db_export_cache = DefaultDBExportCache()
+        self._db_export_cache = DefaultDBExportPolarsCache()
 
     def search(self, data: str) -> dict:
         """
@@ -190,6 +190,7 @@ class Search(ISearch):
                     if data_df is None:
                         data_df = self._db_export_cache.get_data(search_context=search_context,
                                                                  top=False)
+                        data_df = data_df.to_pandas(use_pyarrow_extension_array=True)
                     file_dir = app.config.setdefault("FILE_DIR", constant.DEFAULT_FILE_DIR)
                     self._tar_export_cache.set_data(search_context=search_context,
                                                     data_df=data_df,
