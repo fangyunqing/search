@@ -52,20 +52,20 @@ class Search(db.Model, SerializerMixin):
     usable = Column(String(1), default=1)
     # 页大小
     page_size = Column(Integer, default=50)
+    # 缓存页数
+    pages = Column(Integer, default=10)
     # 查询的时候 先查询多少条
     top = Column(Integer, default=2000)
     # redis缓存时间 单位秒
     redis_cache_time = Column(Integer, default=300)
-    # 多少条形成csv
-    want_csv = Column(Integer, default=10000)
+    # 文件缓存阀值
+    file_cache_limit = Column(Integer, default=10000)
     # 单个导出的文件大小
     export_single_size = Column(Integer, default=200000)
     # 导出文件格式
     export_file_type = Column(String(128), default="xlsx")
     # 导出文件缓存时间 单位分钟
     export_file_cache_time = Column(Integer, default=30)
-    # 前后页数
-    pages = Column(Integer, default=10)
     # 状态
     status = Column(String(128), default=constant.SearchStatus.PARSING)
     # 错误信息
@@ -79,7 +79,7 @@ class Search(db.Model, SerializerMixin):
 class SearchCondition(db.Model, SerializerMixin):
     __tablename__ = "search_condition"
     serialize_only = ("id", "name", "display", "datatype", "order", "create_time", "list_values", "date_default",
-                      "fuzzy_query")
+                      "fuzzy_query", "condition_type")
     __table_args__ = (
         db.UniqueConstraint('search_id', 'name', name='uix_search_condition_id_name'),
     )
@@ -99,6 +99,8 @@ class SearchCondition(db.Model, SerializerMixin):
     list_values = Column(String(1024))
     # 模糊查询
     fuzzy_query = Column(String(1))
+    # 条件类型
+    condition_type = Column(String(128))
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
     # 日期默认值
@@ -302,3 +304,8 @@ class SearchRecord(db.Model, SerializerMixin):
     memo = Column(Text)
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
+
+
+# class SearchConfig(db.Model, SerializerMixin):
+#     __tablename__ = "search_config"
+#     #

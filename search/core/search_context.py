@@ -102,10 +102,21 @@ class SearchContextManager(ISearchContextManager):
 
         r = redis.Redis(connection_pool=redis_pool)
 
-        while not r.setnx(name=constant.RedisKeySuffix.SEARCH_CONTEXT, value=1):
+        while not r.setnx(name=constant.RedisKey.SEARCH_CONTEXT, value=1):
             time.sleep(100)
 
         try:
+            # 查询条件
+            search_condition_list: List[models.SearchCondition] = models.SearchCondition.query.filter_by(
+                search_id=search.id).order_by(models.SearchCondition.order).all()
+            not_normal_list = []
+            for search_condition in search_condition_list:
+                if search_condition.condition_type == constant.ConditionType.TIME \
+                        and search_condition.name not in search_md5.search_sort_condition_list:
+                    not_normal_list.append(search_condition.display)
+            if len(not_normal_list) > 0:
+                raise SearchException(f"条件[{not_normal_list}]不能为空")
+
             key = f"{search.name}_v{search.version}_" + search_md5.search_md5
             value: bytes = r.get(key)
             if value:
@@ -127,9 +138,6 @@ class SearchContextManager(ISearchContextManager):
                     search_id=search.id).order_by(models.SearchField.order).all()
                 search_sql_dict: Dict[int, models.SearchSQL] = {search_sql.id: search_sql
                                                                 for search_sql in search_sql_list}
-                # 查询条件
-                search_condition_list: List[models.SearchCondition] = models.SearchCondition.query.filter_by(
-                    search_id=search.id).order_by(models.SearchCondition.order).all()
 
                 search_buffer_dict: Dict[int, SearchBuffer] = {}
                 for search_field in search_field_list:
@@ -187,11 +195,11 @@ class SearchContextManager(ISearchContextManager):
 
                 return sc
         finally:
-            r.delete(constant.RedisKeySuffix.SEARCH_CONTEXT)
+            r.delete(constant.RedisKey.SEARCH_CONTEXT)
 
     def delete_search_context(self, search_name: str):
         r = redis.Redis(connection_pool=redis_pool)
-        while not r.setnx(name=constant.RedisKeySuffix.SEARCH_CONTEXT, value=1):
+        while not r.setnx(name=constant.RedisKey.SEARCH_CONTEXT, value=1):
             time.sleep(100)
         try:
             search: models.Search = \
@@ -200,7 +208,7 @@ class SearchContextManager(ISearchContextManager):
             if len(all_keys) > 0:
                 r.delete(*all_keys)
         finally:
-            r.delete(constant.RedisKeySuffix.SEARCH_CONTEXT)
+            r.delete(constant.RedisKey.SEARCH_CONTEXT)
 
     @classmethod
     def _condition(cls, search_context: SearchContext, search_md5: SearchMd5):

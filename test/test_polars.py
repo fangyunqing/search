@@ -31,6 +31,4 @@ class TestPolars(unittest.TestCase):
 
         print(df.collect().to_pandas())
 
-        pl.scan_parquet()
-
 

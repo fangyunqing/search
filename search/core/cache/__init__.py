@@ -9,5 +9,5 @@ from .redis_search_cache import DefaultRedisSearchCache, CommonRedisSearchCache
 from .db_search_cache import DefaultDBSearchCache, DefaultDBExportCache
 from .csv_export_cache import DefaultCSVExportCache
 from .tar_export_cache import DefaultTarExportCache
-from .csv_search_cache import DefaultCSVSearchCache
+from .parquet_search_cache import DefaultParquetSearchCache
 from .db_search_pl_cache import DefaultDBExportPolarsCache, DefaultDBSearchPolarsCache

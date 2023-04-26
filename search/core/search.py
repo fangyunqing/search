@@ -49,7 +49,7 @@ class Search(ISearch):
         # csv导出
         self._csv_export_cache = DefaultCSVExportCache()
         # csv查询
-        self._csv_search_cache = DefaultCSVSearchCache()
+        self._parquet_search_cache = DefaultParquetSearchCache()
         # redis查询
         self._redis_search_cache = DefaultRedisSearchCache()
         # tar导出
@@ -87,7 +87,7 @@ class Search(ISearch):
         data, page = self._redis_search_cache.get_data(search_context=search_context, page_number=page_number)
         if data is None:
             try:
-                data, page = self._csv_search_cache.get_data(search_context=search_context, page_number=page_number)
+                data, page = self._parquet_search_cache.get_data(search_context=search_context, page_number=page_number)
                 if data is None:
                     return CommonResult.fail(code=MessageCode.LAST_PAGE.code, message=MessageCode.LAST_PAGE.desc)
             except FileNotFindSearchException:
@@ -96,7 +96,7 @@ class Search(ISearch):
                     if len(data_df) > 0:
                         data_df_real_len = (len(
                             data_df) // search_context.search.page_size) * search_context.search.page_size
-                        data_df = data_df.iloc[0:data_df_real_len]
+                        data_df = data_df.slice(0, data_df_real_len)
                         self._redis_search_cache.set_data(search_context=search_context,
                                                           data_df=data_df,
                                                           page_begin=1,
@@ -106,7 +106,7 @@ class Search(ISearch):
                     else:
                         return CommonResult.fail(code=MessageCode.LAST_PAGE.code, message=MessageCode.LAST_PAGE.desc)
                 r = redis.Redis(connection_pool=redis_pool)
-                if r.set(name=f"{search_context.search_key}_{constant.RedisKeySuffix.SEARCH}",
+                if r.set(name=f"{search_context.search_key}_{constant.RedisKey.SEARCH}",
                          value=1,
                          nx=True,
                          ex=1800):
@@ -143,7 +143,7 @@ class Search(ISearch):
                                            as_attachment=True))
         else:
             r = redis.Redis(connection_pool=redis_pool)
-            if r.set(name=f"{search_context.search_key}_{constant.RedisKeySuffix.EXPORT}",
+            if r.set(name=f"{search_context.search_key}_{constant.RedisKey.EXPORT}",
                      value=1,
                      nx=True,
                      ex=1800,
@@ -163,11 +163,11 @@ class Search(ISearch):
                 with search_local(key=constant.SEARCH_MD5, value=search_context.search_key):
                     data_df = self._db_search_cache.get_data(search_context=search_context,
                                                              top=False)
-                    if len(data_df) > search_context.search.want_csv:
+                    if len(data_df) > search_context.search.file_cache_limit:
                         file_dir = app.config.setdefault("FILE_DIR", constant.DEFAULT_FILE_DIR)
-                        self._csv_search_cache.set_data(search_context=search_context,
-                                                        file_dir=file_dir,
-                                                        data_df=data_df)
+                        self._parquet_search_cache.set_data(search_context=search_context,
+                                                            file_dir=file_dir,
+                                                            data_df=data_df)
                     else:
                         self._redis_search_cache.set_data(search_context=search_context,
                                                           data_df=data_df,
@@ -177,7 +177,7 @@ class Search(ISearch):
             logger.exception(e)
         finally:
             r = redis.Redis(connection_pool=redis_pool)
-            r.delete(f"{search_context.search_key}_{constant.RedisKeySuffix.SEARCH}")
+            r.delete(f"{search_context.search_key}_{constant.RedisKey.SEARCH}")
 
     def _export_thread_func(self, app: Flask, search_context: SearchContext):
         try:
@@ -195,7 +195,7 @@ class Search(ISearch):
             logger.exception(e)
         finally:
             r = redis.Redis(connection_pool=redis_pool)
-            r.delete(f"{search_context.search_key}_{constant.RedisKeySuffix.EXPORT}")
+            r.delete(f"{search_context.search_key}_{constant.RedisKey.EXPORT}")
 
     def export_progress(self, data: str) -> dict:
         data = json.loads(data)

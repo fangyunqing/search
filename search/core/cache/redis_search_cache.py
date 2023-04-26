@@ -9,7 +9,7 @@ import math
 from abc import ABCMeta, abstractmethod
 from typing import List, Any
 
-import pandas as pd
+import polars as pl
 import redis
 import simplejson as json
 from redis import Redis
@@ -30,7 +30,7 @@ class RedisSearchCache(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def set_data(self, search_context: SearchContext, data_df: pd.DataFrame, page_begin: int = 0, whole: bool = True):
+    def set_data(self, search_context: SearchContext, data_df: pl.DataFrame, page_begin: int = 0, whole: bool = True):
         pass
 
 
@@ -58,14 +58,16 @@ class AbstractRedisSearchCache(RedisSearchCache):
             page["number"] = str(page_number)
         return [data, page]
 
-    def set_data(self, search_context: SearchContext, data_df: pd.DataFrame, page_begin: int = 1, whole: bool = True):
+    def set_data(self, search_context: SearchContext, data_df: pl.DataFrame, page_begin: int = 1, whole: bool = True):
         r = redis.Redis(connection_pool=redis_pool)
         page_size = search_context.search.page_size
         for index in range(0, self.count(search_context=search_context, data_df=data_df)):
-            chunk_df: pd.DataFrame = data_df.iloc[page_size * index:page_size * (index + 1)]
+            chunk_df: pl.DataFrame = data_df.slice(page_size * index, page_size)
             if len(chunk_df) > 0:
-                self.exec(r=r, search_context=search_context,
-                          chunk_df=chunk_df, page_number=page_begin)
+                self.exec(r=r,
+                          search_context=search_context,
+                          chunk_df=chunk_df,
+                          page_number=page_begin)
                 page_begin += 1
 
         r = redis.Redis(connection_pool=redis_pool)
@@ -90,23 +92,23 @@ class AbstractRedisSearchCache(RedisSearchCache):
                 time=search_context.search.redis_cache_time)
 
     @abstractmethod
-    def count(self, search_context: SearchContext, data_df: pd.DataFrame):
+    def count(self, search_context: SearchContext, data_df: pl.DataFrame):
         pass
 
     @abstractmethod
-    def exec(self, search_context: SearchContext, r: Redis, chunk_df: pd.DataFrame, page_number: int):
+    def exec(self, search_context: SearchContext, r: Redis, chunk_df: pl.DataFrame, page_number: int):
         pass
 
 
 class CommonRedisSearchCache(AbstractRedisSearchCache):
     execs = ["exec"]
 
-    def count(self, search_context: SearchContext, data_df: pd.DataFrame):
+    def count(self, search_context: SearchContext, data_df: pl.DataFrame):
         page_size = search_context.search.page_size
         return math.ceil(len(data_df) / page_size)
 
-    def exec(self, search_context: SearchContext, r: Redis, chunk_df: pd.DataFrame, page_number: int):
-        data = json.dumps(chunk_df.to_dict("records"), cls=SearchEncoder, ignore_nan=True)
+    def exec(self, search_context: SearchContext, r: Redis, chunk_df: pl.DataFrame, page_number: int):
+        data = json.dumps(chunk_df.to_dicts(), cls=SearchEncoder, ignore_nan=True)
         redis_key: str = f"{search_context.search_key}_{page_number}"
         r.setex(name=redis_key,
                 time=search_context.search.redis_cache_time,

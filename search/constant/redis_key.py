@@ -6,7 +6,7 @@
 __author__ = 'fyq'
 
 
-class RedisKeySuffix:
+class RedisKey:
 
     SEARCH_PARSE = "search_parse"
 
@@ -21,3 +21,12 @@ class RedisKeySuffix:
     EXPORT = "export"
 
     SEARCH_DELETE_FILE = "delete_file_174aeb1d-0154-0617-83c1-f87b349481b2"
+
+    SEARCH_CONFIG = "d0fc1db4-73cd-47cc-a408-7746c4efa86c"
+
+    SEARCH_STRATEGY = "a79db15d-b809-48ab-bbfe-cf33b126ba0d"
+
+    SEARCH_STRATEGY_LOCK = "93a33887-0916-4d3e-9bab-22382a3bb408"
+
+
+

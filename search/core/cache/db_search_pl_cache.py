@@ -13,29 +13,29 @@ from threading import get_ident
 from typing import Optional, List, Any
 
 import munch
+import polars as pl
 from loguru import logger
+from pyext import RuntimeModule
 
 from search import dm
-
-import pandas as pd
-import polars as pl
-
 from search.core.progress import Progress
-from search.core.search_context import SearchContext, SearchBuffer
+from search.core.search_context import SearchContext
+from search.core.strategy import FetchLengthStrategy
+from search.exceptions import SearchException
 
-from pyext import RuntimeModule
+pl.Config(activate_decimals=True, set_fmt_str_lengths=100)
 
 
 class DBSearchPolarsCache(metaclass=ABCMeta):
 
     @abstractmethod
-    def get_data(self, search_context: SearchContext) -> Optional[pd.DataFrame]:
+    def get_data(self, search_context: SearchContext) -> Optional[pl.DataFrame]:
         pass
 
 
 class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
 
-    def get_data(self, search_context: SearchContext, top: bool = False) -> Optional[pd.DataFrame]:
+    def get_data(self, search_context: SearchContext, top: bool = False) -> Optional[pl.DataFrame]:
         conn_list = dm.get_connections()
         self.count(search_context=search_context, conn_list=conn_list, top=top)
         data_df: Optional[pl.LazyFrame] = None
@@ -97,7 +97,10 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                         data_type[select_field] = pl.Date
                     elif select_field.startswith("b"):
                         data_type[select_field] = pl.Boolean
-                # 创建多级文件夹
+                    else:
+                        raise SearchException(f"sql查询[{search_buffer.name}]中查询字段或者关联字段[{select_field}"
+                                              f"请以(i,n,u,s,t,d,b)开头")
+
                 index = 0
                 file_info_list.append({
                     "file": f"{tmp_file}{os.sep}{search_buffer.search_sql.name}",
@@ -145,13 +148,13 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
         pass
 
     @abstractmethod
-    def exec_new_df(self, search_context: SearchContext, df: pl.LazyFrame) -> pd.DataFrame:
+    def exec_new_df(self, search_context: SearchContext, df: pl.LazyFrame) -> pl.DataFrame:
         pass
 
 
 class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
 
-    def exec_new_df(self, search_context: SearchContext, df: pl.LazyFrame) -> pd.DataFrame:
+    def exec_new_df(self, search_context: SearchContext, df: pl.LazyFrame) -> pl.DataFrame:
         search_field_dict = {search_field.name: search_field
                              for search_field in search_context.search_field_list}
         expr_list = []
@@ -165,7 +168,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                         find = False
                         for v in md.__dict__.values():
                             if callable(v):
-                                expr_list.append(pl.lit(None).alias(new_field))
+                                expr_list.append(v().alias(new_field))
                                 find = True
                                 break
                         if not find:
@@ -188,6 +191,8 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                 elif search_field.datatype == "float":
                     expr.cast(pl.Decimal)
                 elif search_field.datatype == "date":
+                    expr.cast(pl.Date)
+                elif search_field.datatype == "datetime":
                     expr.cast(pl.Datetime)
             else:
                 expr_list.append(pl.lit(None).alias(new_field))
@@ -196,7 +201,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
             .select(["col_" + field for field in search_context.search_md5.search_original_field_list]) \
             .collect()
         df.columns = search_context.search_md5.search_original_field_list
-        return df.to_pandas(use_pyarrow_extension_array=True)
+        return df
 
     execs = ["exec", "exec_new_df"]
 
@@ -207,7 +212,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
         else:
             return c + 1
 
-    def exec(self, search_context: SearchContext, search_buffer: SearchBuffer, conn, sql: str, tmp_sql: str) -> Any:
+    def exec(self, search_context: SearchContext, search_buffer: munch.Munch, conn, sql: str, tmp_sql: str) -> Any:
         cur = conn.cursor()
         try:
             if len(search_buffer.tmp_fields) > 0:
@@ -215,8 +220,9 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                 cur.execute(tmp_sql, tuple(search_buffer.args))
             logger.info(f"查询表sql:{sql} 参数:{search_buffer.args}")
             cur.execute(sql, tuple(search_buffer.args))
+            fetch_length = FetchLengthStrategy().get_fetch_rows(search_buffer.select_fields)
             while True:
-                data = cur.fetchmany(100000)
+                data = cur.fetchmany(fetch_length)
                 if data:
                     yield data
                 else:

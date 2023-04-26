@@ -79,6 +79,12 @@ class SearchParser(ISearchParser):
             models.SearchCondition.query.filter_by(search_id=search_id).order_by(models.SearchCondition.order).all()
         search_condition_dict: Dict[str, models.SearchCondition] = {search_condition.name: search_condition
                                                                     for search_condition in search_condition_list}
+
+        condition_type_time_list = [search_condition for search_condition in search_condition_list
+                                    if search_condition.condition_type == constant.ConditionType.TIME]
+        if len(condition_type_time_list) != 2:
+            errors.append(f"查询条件中查询类型[时间]必须等于2(={len(condition_type_time_list)})")
+
         # sql语句解析
         parse = SearchSqlParser()
         depend_condition = set()
@@ -144,6 +150,11 @@ class SearchParser(ISearchParser):
         if len(all_fields) > len(set(all_fields)):
             errors.append("sql语句生成的字段名重复")
 
+        fail_field = [f for f in all_fields
+                      if not f.startswith(("i", "n", "u", "s", "t", "d", "b"))]
+        if len(fail_field) > 0:
+            errors.append(f"sql查询出来的字段中{fail_field}请以(i,n,u,s,t,d,b)开头")
+
         db.session.flush()
 
         major_search_id_list = []
@@ -197,11 +208,17 @@ class SearchParser(ISearchParser):
         # 字符解析
         for search_field in search_field_list:
             not_find_results = []
+            result_fields_list = search_field.result_fields.split(",")
             for result in search_field.result_fields.split(","):
                 if result not in all_fields:
                     not_find_results.append(result)
             if len(not_find_results) > 0:
                 errors.append(f"字段[{search_field.name}]中结果字段{not_find_results}未在结果集中存在")
+            if search_field.rule:
+                if not search_field.rule.startswith(("def", "import", "from")):
+                    errors.append(f"字段[{search_field.name}]中py函数必须以(def, import, from)开头)")
+            elif len(result_fields_list) > 1:
+                errors.append(f"字段[{search_field.name}]中依赖字段必须为一个")
             self._find(search_sql_list, search_field.result_fields, search_field, 0)
 
         if len(errors) > 0:

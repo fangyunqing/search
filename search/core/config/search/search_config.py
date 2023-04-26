@@ -94,12 +94,15 @@ class SearchConfig(ISearchConfig):
             models.SearchField.query.filter_by(search_id=search_id).order_by(models.SearchField.order).all()
         search_condition_list: List[models.SearchCondition] = \
             models.SearchCondition.query.filter_by(search_id=search_id).order_by(models.SearchCondition.order).all()
-
+        search_field_list: List[munch.Munch] = [munch.Munch(search_field.to_dict())
+                                                for search_field in search_field_list]
+        for search_field in search_field_list:
+            search_field["result_fields"] = list(search_field.result_fields.split(","))
         res = {
             "search": search.to_dict(),
             "searchCondition": [search_condition.to_dict() for search_condition in search_condition_list],
             "searchSql": [search_sql.to_dict() for search_sql in search_sql_list],
-            "searchField": [search_field.to_dict() for search_field in search_field_list]
+            "searchField": search_field_list
         }
 
         return CommonResult.success(data=res)
@@ -135,6 +138,10 @@ class SearchConfig(ISearchConfig):
     def field(self, search_id) -> Dict:
         search_field_list: List[models.SearchField] = \
             models.SearchField.query.filter_by(search_id=search_id).order_by(models.SearchField.order).all()
+        search_field_list: List[munch.Munch] = [munch.Munch(search_field.to_dict())
+                                                for search_field in search_field_list]
+        for search_field in search_field_list:
+            search_field["result_fields"] = list(search_field.result_fields.split(","))
         return CommonResult.success(data=search_field_list)
 
     def search(self, data: dict) -> Dict:
@@ -182,6 +189,8 @@ class SearchConfig(ISearchConfig):
         repeat_value = repeat(search_sql_list, "name")
         if len(repeat_value) > 0:
             raise SearchException(f"查询[{search.search_name}]sql名称存在重复[{repeat_value}]")
+        for sf in m.searchField:
+            sf["result_fields"] = ",".join(sf["result_fields"])
         search_field_list: List[models.SearchField] = data2obj(m.searchField, models.SearchField)
         repeat_value = repeat(search_field_list, "name")
         if len(repeat_value) > 0:
@@ -229,6 +238,8 @@ class SearchConfig(ISearchConfig):
         repeat_value = repeat(search_sql_list, "name")
         if len(repeat_value) > 0:
             raise SearchException(f"查询[{search_name}]sql名称存在重复[{repeat_value}]")
+        for sf in m.searchField:
+            sf["result_fields"] = ",".join(sf["result_fields"])
         search_field_list: List[models.SearchField] = data2obj(m.searchField, models.SearchField)
         repeat_value = repeat(search_field_list, "name")
         if len(repeat_value) > 0:

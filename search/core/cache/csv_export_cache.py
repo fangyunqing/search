@@ -10,6 +10,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Optional, List
 
 import pandas as pd
+import polars as pl
 from loguru import logger
 from sqlalchemy import asc
 
@@ -37,7 +38,7 @@ class DefaultCSVExportCache(CSVExportCache):
         if all(res):
             df_list: List[pd.DataFrame] = []
             for search_file in search_file_list:
-                df_list.append(pd.read_csv(filepath_or_buffer=search_file.path, sep="`"))
+                df_list.append(pl.read_parquet(search_file.path).to_pandas(use_pyarrow_extension_array=True))
             if len(df_list) > 0:
                 return pd.concat(df_list)
         else:
