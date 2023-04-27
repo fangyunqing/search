@@ -35,8 +35,8 @@ class TestPolars(unittest.TestCase):
 
         import ndjson
         posts = []
-        for _ in range(0, 100000):
-            posts.append({"a": 3, "b": 4, "c": "3"})
+        for _ in range(0, 2000000):
+            posts.append({"a": 3, "b": 4, "c": "3", "d": 3, "e": 4, "f": "3", "g": 3, "h": 4, "i": "3"})
         with open('data.ndjson', 'w') as f:
             writer = ndjson.writer(f, ensure_ascii=False)
 

@@ -101,7 +101,6 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                         raise SearchException(f"sql查询[{search_buffer.name}]中查询字段或者关联字段[{select_field}"
                                               f"请以(i,n,u,s,t,d,b)开头")
 
-                index = 0
                 file_info_list.append({
                     "file": f"{tmp_file}{os.sep}{search_buffer.search_sql.name}",
                     "search_buffer": search_buffer,
@@ -114,25 +113,25 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                                     sql=sql,
                                     tmp_sql=tmp_sql)
                     for r in res:
-                        file = f"{tmp_file}{os.sep}{search_buffer.search_sql.name}-{index}.ndjson"
-                        with open(file, 'w') as f:
+                        file = f"{tmp_file}{os.sep}{search_buffer.search_sql.name}.ndjson"
+                        with open(file, 'a+', encoding="utf-8") as f:
                             writer = ndjson.writer(f, ensure_ascii=False, cls=SearchEncoder)
                             for d in r:
                                 writer.writerow(d)
-                        index += 1
                     if search_cache_index == 0 and top:
                         break
 
             for file_info_index, file_info in enumerate(file_info_list):
                 try:
                     if file_info_index == 0:
-                        data_df = pl.scan_ndjson(f"{file_info.get('file')}-*.ndjson")
+                        data_df = pl.scan_ndjson(f"{file_info.get('file')}.ndjson", infer_schema_length=None)
                     else:
-                        new_df = pl.scan_ndjson(f"{file_info.get('file')}-*.ndjson")
+                        new_df = pl.scan_ndjson(f"{file_info.get('file')}.ndjson", infer_schema_length=None)
                         data_df = data_df.join(other=new_df,
                                                how=file_info.get('search_buffer').search_sql.how,
                                                on=file_info.get('search_buffer').join_fields)
-                except (FileNotFoundError, pl.exceptions.ComputeError):
+                except (FileNotFoundError, pl.exceptions.ComputeError) as e:
+                    logger.exception(e)
                     if file_info_index == 0:
                         data_df = pl.LazyFrame()
                         break
@@ -179,7 +178,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                             expr_list.append(pl.lit(None).alias(new_field))
                             logger.warning(f"{search_context.search_md5.search_name}-{search_field.name}-rule未发现可执行函数")
                     else:
-                        if field in df:
+                        if field in df.columns:
                             expr_list.append(pl.col(field).alias(new_field))
                         else:
                             expr_list.append(pl.lit(None).alias(new_field))
