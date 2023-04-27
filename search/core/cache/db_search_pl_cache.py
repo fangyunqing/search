@@ -132,7 +132,7 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                         data_df = data_df.join(other=new_df,
                                                how=file_info.get('search_buffer').search_sql.how,
                                                on=file_info.get('search_buffer').join_fields)
-                except FileNotFoundError:
+                except (FileNotFoundError, pl.exceptions.ComputeError):
                     if file_info_index == 0:
                         data_df = pl.LazyFrame()
                         break
