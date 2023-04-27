@@ -13,11 +13,13 @@ from threading import get_ident
 from typing import Optional, List, Any
 
 import munch
+import ndjson
 import polars as pl
 from loguru import logger
 from pyext import RuntimeModule
 
 from search import dm
+from search.core.json_encode import SearchEncoder
 from search.core.progress import Progress
 from search.core.search_context import SearchContext
 from search.core.strategy import FetchLengthStrategy
@@ -79,24 +81,22 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                 tmp_sql = " ".join(tmp_sql_list)
 
                 # 类型判断
-                data_type = {}
                 expr_list = []
                 for select_field in search_buffer.select_fields:
                     if select_field.startswith("i"):
-                        data_type[select_field] = pl.Int32
+                        expr_list.append(pl.col(select_field).cast(pl.Int32))
                     elif select_field.startswith("n"):
-                        data_type[select_field] = pl.Decimal
+                        expr_list.append(pl.col(select_field).cast(pl.Decimal))
                     elif select_field.startswith("u"):
-                        data_type[select_field] = pl.Object
-                        expr_list.append(pl.col(select_field).apply(lambda x: str(x)).cast(pl.Utf8))
+                        expr_list.append(pl.col(select_field).cast(pl.Utf8))
                     elif select_field.startswith("s"):
-                        data_type[select_field] = pl.Utf8
+                        expr_list.append(pl.col(select_field).cast(pl.Utf8))
                     elif select_field.startswith("t"):
-                        data_type[select_field] = pl.Datetime
+                        expr_list.append(pl.col(select_field).cast(pl.Datetime))
                     elif select_field.startswith("d"):
-                        data_type[select_field] = pl.Date
+                        expr_list.append(pl.col(select_field).cast(pl.Date))
                     elif select_field.startswith("b"):
-                        data_type[select_field] = pl.Boolean
+                        expr_list.append(pl.col(select_field).cast(pl.Boolean))
                     else:
                         raise SearchException(f"sql查询[{search_buffer.name}]中查询字段或者关联字段[{select_field}"
                                               f"请以(i,n,u,s,t,d,b)开头")
@@ -104,7 +104,8 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                 index = 0
                 file_info_list.append({
                     "file": f"{tmp_file}{os.sep}{search_buffer.search_sql.name}",
-                    "search_buffer": search_buffer
+                    "search_buffer": search_buffer,
+                    "expr": expr_list
                 })
                 for conn in conn_list:
                     res = self.exec(conn=conn,
@@ -113,8 +114,11 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                                     sql=sql,
                                     tmp_sql=tmp_sql)
                     for r in res:
-                        file = f"{tmp_file}{os.sep}{search_buffer.search_sql.name}-{index}.parquet"
-                        pl.DataFrame(data=r, schema=data_type).with_columns(*expr_list).write_parquet(file)
+                        file = f"{tmp_file}{os.sep}{search_buffer.search_sql.name}-{index}.ndjson"
+                        with open(file, 'w') as f:
+                            writer = ndjson.writer(f, ensure_ascii=False, cls=SearchEncoder)
+                            for d in r:
+                                writer.writerow(d)
                         index += 1
                     if search_cache_index == 0 and top:
                         break
@@ -122,9 +126,9 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
             for file_info_index, file_info in enumerate(file_info_list):
                 try:
                     if file_info_index == 0:
-                        data_df = pl.scan_parquet(f"{file_info.get('file')}*.parquet")
+                        data_df = pl.scan_ndjson(f"{file_info.get('file')}-*.ndjson")
                     else:
-                        new_df = pl.scan_parquet(f"{file_info.get('file')}*.parquet")
+                        new_df = pl.scan_ndjson(f"{file_info.get('file')}-*.ndjson")
                         data_df = data_df.join(other=new_df,
                                                how=file_info.get('search_buffer').search_sql.how,
                                                on=file_info.get('search_buffer').join_fields)

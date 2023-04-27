@@ -128,6 +128,7 @@ class SearchContextManager(ISearchContextManager):
                 sc.search_buffer_list = m.search_buffer_list
                 sc.search_field_list = m.search_field_list
                 sc.search_condition_dict = m.search_condition_dict
+                sc.cache_dir = m.cache_dir
                 return sc
             else:
                 # 查询sql

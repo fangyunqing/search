@@ -27,8 +27,20 @@ class TestPolars(unittest.TestCase):
         for _ in range(0, 100):
             data.append((None, None, uuid.uuid4()))
 
-        df = pl.LazyFrame(data=data, schema={"sColorName": pl.Utf8, "naa": pl.Decimal,  "uuid": pl.Object})
+        df = pl.LazyFrame(data=data, schema={"sColorName": pl.Utf8, "naa": pl.Decimal, "uuid": pl.Object})
 
         print(df.collect().to_pandas())
 
+    def test_read_json(self):
 
+        import ndjson
+        posts = []
+        for _ in range(0, 100000):
+            posts.append({"a": 3, "b": 4, "c": "3"})
+        with open('data.ndjson', 'w') as f:
+            writer = ndjson.writer(f, ensure_ascii=False)
+
+            for post in posts:
+                writer.writerow(post)
+        df = pl.scan_ndjson("data.ndjson")
+        print(df.collect())

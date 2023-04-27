@@ -55,8 +55,10 @@ class DataBasePool:
             config["autocommit"] = kwargs.pop("autocommit", None)
             # TDS protocol version to use.
             config["tds_version"] = kwargs.pop("tds_version", None)
-            #
+            # 编码
             config["charset"] = kwargs.pop("charset", "utf8")
+            # 结果类型
+            config["as_dict"] = True
         elif DataBaseType.ORACLE == db_type:
             pass
 

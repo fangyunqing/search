@@ -27,8 +27,8 @@ class SearchEncoder(json.JSONEncoder):
             else:
                 return obj.strftime("%Y-%m-%d")
         elif isinstance(obj, Decimal):
-            float(str(obj))
+            return float(str(obj))
         elif isinstance(obj, UUID):
-            str(obj)
+            return str(obj)
         else:
             return json.JSONEncoder.default(self, obj)

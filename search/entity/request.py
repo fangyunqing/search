@@ -6,7 +6,7 @@
 __author__ = 'fyq'
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Any
 
 from search.entity.common_result import BaseDataClass
 
@@ -41,3 +41,6 @@ class AfterRequest(BaseDataClass):
 
     # 响应长度
     content_length: int = 0
+
+    # json
+    json: Any = 0
