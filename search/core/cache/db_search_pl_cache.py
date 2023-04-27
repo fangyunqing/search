@@ -122,20 +122,15 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                         break
 
             for file_info_index, file_info in enumerate(file_info_list):
-                try:
+                file_path = f"{file_info.get('file')}.ndjson"
+                if os.path.isfile(file_path):
                     if file_info_index == 0:
-                        data_df = pl.scan_ndjson(f"{file_info.get('file')}.ndjson", infer_schema_length=None)
+                        data_df = pl.scan_ndjson(file_path, infer_schema_length=None)
                     else:
-                        new_df = pl.scan_ndjson(f"{file_info.get('file')}.ndjson", infer_schema_length=None)
+                        new_df = pl.scan_ndjson(file_path, infer_schema_length=None)
                         data_df = data_df.join(other=new_df,
                                                how=file_info.get('search_buffer').search_sql.how,
                                                on=file_info.get('search_buffer').join_fields)
-                except (FileNotFoundError, pl.exceptions.ComputeError) as e:
-                    logger.exception(e)
-                    if file_info_index == 0:
-                        data_df = pl.LazyFrame()
-                        break
-
             return self.exec_new_df(search_context=search_context,
                                     df=data_df)
         finally:
