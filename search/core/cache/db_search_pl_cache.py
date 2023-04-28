@@ -85,26 +85,24 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                     "file": file,
                     "search_buffer": search_buffer
                 })
+                with open(file, 'w', encoding="utf-8") as f:
+                    writer = ndjson.writer(f, ensure_ascii=False, cls=SearchEncoder)
+                    for conn in conn_list:
+                        res = self.exec(conn=conn,
+                                        search_context=search_context,
+                                        search_buffer=search_buffer,
+                                        sql=sql,
+                                        tmp_sql=tmp_sql)
+                        for r in res:
+                            for d in r:
+                                writer.writerow(d)
 
-                for conn in conn_list:
-                    res = self.exec(conn=conn,
-                                    search_context=search_context,
-                                    search_buffer=search_buffer,
-                                    sql=sql,
-                                    tmp_sql=tmp_sql)
-                    if res:
-                        with open(file, 'a+', encoding="utf-8") as f:
-                            writer = ndjson.writer(f, ensure_ascii=False, cls=SearchEncoder)
-                            for r in res:
-                                for d in r:
-                                    writer.writerow(d)
-
-                    if search_cache_index == 0 and top:
-                        break
+                        if search_cache_index == 0 and top:
+                            break
 
             for file_info_index, file_info in enumerate(file_info_list):
                 file_path = file_info.get('file')
-                if os.path.isfile(file_path):
+                if os.path.isfile(file_path) and os.stat(file_path).st_size > 0:
                     if file_info_index == 0:
                         data_df = pl.scan_ndjson(file_path, infer_schema_length=None)
                     else:
