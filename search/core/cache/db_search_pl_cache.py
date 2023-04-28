@@ -168,9 +168,9 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                 elif search_field.datatype == "float":
                     expr_list[-1] = expr.cast(pl.Decimal)
                 elif search_field.datatype == "date":
-                    expr_list[-1] = expr.cast(pl.Date)
+                    expr_list[-1] = expr.str.strptime(pl.Date, "%Y-%m-%d")
                 elif search_field.datatype == "datetime":
-                    expr_list[-1] = expr.cast(pl.Datetime)
+                    expr_list[-1] = expr.str.strptime(pl.Datetime, "%Y-%m-%d %H:%M:%S")
             else:
                 expr_list.append(pl.lit(None).alias(new_field))
 

@@ -50,7 +50,7 @@ def on_starting(server):
     try:
         params: List[SearchParameter] = db_session.query(SearchParameter).all()
         r.set(name=constant.RedisKey.SEARCH_CONFIG,
-              value=simplejson.loads([p.to_dict() for p in params]))
+              value=simplejson.dumps([p.to_dict() for p in params]))
     finally:
         db_session.close()
         db.dispose()
