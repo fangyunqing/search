@@ -57,23 +57,23 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                 where_expression = search_buffer.where_expression
                 where_expression = where_expression. \
                     format(*[get_ident() for _ in range(0, search_buffer.where_expression.count("{}"))])
-                sql_list.append("select")
+                sql_list.append("SELECT")
                 sql_list.append(select_expression)
                 sql_list.append(",".join(search_buffer.field_list))
-                sql_list.append("from")
+                sql_list.append("FROM")
                 sql_list.append(search_buffer.search_sql.from_expression)
                 if len(where_expression) > 0:
-                    sql_list.append("where")
+                    sql_list.append("WHERE")
                     sql_list.append(where_expression)
                 sql_list.append(search_buffer.search_sql.other_expression)
 
-                tmp_sql_list.append("select")
+                tmp_sql_list.append("SELECT")
                 tmp_sql_list.append(select_expression)
                 tmp_sql_list.append(",".join(search_buffer.tmp_fields) + f" into {tmp_tablename}")
-                tmp_sql_list.append("from")
+                tmp_sql_list.append("FROM")
                 tmp_sql_list.append(search_buffer.search_sql.from_expression)
                 if len(where_expression) > 0:
-                    tmp_sql_list.append("where")
+                    tmp_sql_list.append("WHERE")
                     tmp_sql_list.append(where_expression)
                 tmp_sql_list.append(search_buffer.search_sql.other_expression)
 

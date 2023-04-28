@@ -254,11 +254,12 @@ class SearchContextManager(ISearchContextManager):
                                 del_logic = True
                                 break
                 else:
-
                     if fe not in ["AND", "OR"] or not del_logic:
                         where_expression_list.append(fe)
                     elif fe in ["AND", "OR"] and del_logic:
                         del_logic = False
+            if where_expression_list[0] in ["AND", "OR"]:
+                where_expression_list = where_expression_list[1:]
             search_buffer.where_expression = " ".join(where_expression_list)
             while "( )" in search_buffer.where_expression:
                 search_buffer.where_expression = search_buffer.where_expression.replace("( )", "")
