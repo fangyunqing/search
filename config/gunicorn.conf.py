@@ -47,6 +47,11 @@ def on_starting(server):
     db = create_engine(SQLALCHEMY_DATABASE_URI)
     obj_session = sessionmaker(db)
     db_session = obj_session()
-    params: List[SearchParameter] = db_session.query(SearchParameter).all()
-    r.set(name=constant.RedisKey.SEARCH_CONFIG,
-          value=simplejson.loads([p.to_dict() for p in params]))
+    try:
+        params: List[SearchParameter] = db_session.query(SearchParameter).all()
+        r.set(name=constant.RedisKey.SEARCH_CONFIG,
+              value=simplejson.loads([p.to_dict() for p in params]))
+    finally:
+        db_session.close()
+        db.dispose()
+        del db
