@@ -44,3 +44,4 @@ class TestPolars(unittest.TestCase):
                 writer.writerow(post)
         df = pl.scan_ndjson("data.ndjson")
         print(df.collect())
+        pl.DataFrame().write_ndjson()

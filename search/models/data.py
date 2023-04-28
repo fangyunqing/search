@@ -133,7 +133,7 @@ class SearchField(db.Model, SerializerMixin):
     # 搜索的ID
     search_id = Column(Integer, ForeignKey("search.id"))
     # 生成路径
-    search_field_gen_paths = db.relationship("SearchFieldGenPath",  backref="search_field", passive_deletes=True)
+    search_field_gen_paths = db.relationship("SearchFieldGenPath", backref="search_field", passive_deletes=True)
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
 
@@ -306,6 +306,15 @@ class SearchRecord(db.Model, SerializerMixin):
     create_time = Column(DateTime(timezone=True), default=func.now())
 
 
-# class SearchConfig(db.Model, SerializerMixin):
-#     __tablename__ = "search_config"
-#     #
+class SearchParameter(db.Model, SerializerMixin):
+    __tablename__ = "search_parameter"
+    # 主键
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    # 名称
+    name = Column(String(255), nullable=False)
+    # 值
+    value = Column(String(255))
+    # 可用
+    usable = Column(String(1), default="1")
+    # 备注
+    memo = Column(String(255))

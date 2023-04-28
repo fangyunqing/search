@@ -20,11 +20,17 @@ timeout = 360
 graceful_timeout = 360
 
 
-# gunicorn启动前执行 清理redis缓存
+# gunicorn启动前执行
 def on_starting(server):
     import redis
-    from search.config.settings import REDIS_HOST, REDIS_PORT
+    from search.config.settings import REDIS_HOST, REDIS_PORT, SQLALCHEMY_DATABASE_URI
     from search import constant
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from search.models import SearchParameter
+    from typing import List
+    import simplejson
+
     r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
     r.delete(constant.RedisKey.SEARCH_CONTEXT_LOCK)
     r.delete(constant.RedisKey.SEARCH_DELETE_FILE_LOCK)
@@ -37,3 +43,10 @@ def on_starting(server):
     keys = r.keys(f"{constant.RedisKey.PROGRESS_LOCK_PREFIX}_*")
     if len(keys) > 0:
         r.delete(*keys)
+
+    db = create_engine(SQLALCHEMY_DATABASE_URI)
+    obj_session = sessionmaker(db)
+    db_session = obj_session()
+    params: List[SearchParameter] = db_session.query(SearchParameter).all()
+    r.set(name=constant.RedisKey.SEARCH_CONFIG,
+          value=simplejson.loads([p.to_dict() for p in params]))
