@@ -55,10 +55,11 @@ def create_app():
         ar = AfterRequest()
         ar.path = request.path
         ar.content_length = response.content_length
-        if ar.content_length < 1024:
-            ar.json = response.json
-        else:
-            ar.json = "..."
+        if ar.content_length:
+            if ar.content_length < 1024:
+                ar.json = response.json
+            else:
+                ar.json = "..."
         logger.info(f"响应参数:{ar.to_dict()}")
 
         return response

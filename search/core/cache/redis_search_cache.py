@@ -12,6 +12,7 @@ from typing import List, Any
 import polars as pl
 import redis
 import simplejson as json
+from loguru import logger
 from redis import Redis
 
 from search import constant
@@ -35,6 +36,9 @@ class RedisSearchCache(metaclass=ABCMeta):
 
 
 class AbstractRedisSearchCache(RedisSearchCache):
+
+    def __init__(self):
+        pass
 
     def get_data(self, search_context: SearchContext, page_number: int) -> List[Any]:
         redis_key: str = f"{search_context.search_key}_{page_number}"
@@ -60,18 +64,23 @@ class AbstractRedisSearchCache(RedisSearchCache):
 
     def set_data(self, search_context: SearchContext, data_df: pl.DataFrame, page_begin: int = 1, whole: bool = True):
         r = redis.Redis(connection_pool=redis_pool)
-        page_size = search_context.search.page_size
-        for index in range(0, self.count(search_context=search_context, data_df=data_df)):
-            chunk_df: pl.DataFrame = data_df.slice(page_size * index, page_size)
-            if len(chunk_df) > 0:
-                self.exec(r=r,
-                          search_context=search_context,
-                          chunk_df=chunk_df,
-                          page_number=page_begin)
-                page_begin += 1
+        self.count(search_context=search_context, data_df=data_df)
+        self.exec(r=r,
+                  search_context=search_context,
+                  data_df=data_df,
+                  page_number=page_begin)
 
-        r = redis.Redis(connection_pool=redis_pool)
+        # for index in range(0, self.count(search_context=search_context, data_df=data_df)):
+        #     chunk_df: pl.DataFrame = data_df.slice(page_size * index, page_size)
+        #     if len(chunk_df) > 0:
+        #         self.exec(r=r,
+        #                   search_context=search_context,
+        #                   chunk_df=chunk_df,
+        #                   page_number=page_begin)
+        #         page_begin += 1
+
         value: bytes = r.get(name=f"{search_context.search_key}_{constant.CSV}")
+        page_size = search_context.search.page_size
         if value:
             page = value.decode()
             page = json.loads(page)
@@ -96,7 +105,7 @@ class AbstractRedisSearchCache(RedisSearchCache):
         pass
 
     @abstractmethod
-    def exec(self, search_context: SearchContext, r: Redis, chunk_df: pl.DataFrame, page_number: int):
+    def exec(self, search_context: SearchContext, r: Redis, data_df: pl.DataFrame, page_number: int):
         pass
 
 
@@ -105,14 +114,22 @@ class CommonRedisSearchCache(AbstractRedisSearchCache):
 
     def count(self, search_context: SearchContext, data_df: pl.DataFrame):
         page_size = search_context.search.page_size
-        return math.ceil(len(data_df) / page_size)
+        return 1
 
-    def exec(self, search_context: SearchContext, r: Redis, chunk_df: pl.DataFrame, page_number: int):
-        data = json.dumps(chunk_df.to_dicts(), cls=SearchEncoder, ignore_nan=True)
-        redis_key: str = f"{search_context.search_key}_{page_number}"
-        r.setex(name=redis_key,
-                time=search_context.search.redis_cache_time,
-                value=data)
+    def exec(self, search_context: SearchContext, r: Redis, data_df: pl.DataFrame, page_number: int):
+        page_size = search_context.search.page_size
+        number = math.ceil(len(data_df) / page_size)
+        with r.pipeline(transaction=True) as pipe:
+            for index in range(0, number):
+                chunk_df: pl.DataFrame = data_df.slice(page_size * index, page_size)
+                if len(chunk_df) > 0:
+                    redis_key: str = f"{search_context.search_key}_{page_number}"
+                    data = json.dumps(chunk_df.to_dicts(), cls=SearchEncoder, ignore_nan=True)
+                    pipe.setex(name=redis_key,
+                               time=search_context.search.redis_cache_time,
+                               value=data)
+                    page_number += 1
+            pipe.execute()
 
 
 @Progress(prefix="search", suffix="redis_o_file")

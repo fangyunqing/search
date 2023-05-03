@@ -24,14 +24,14 @@ class FetchLengthStrategy(IFetchStrategy):
     def get_fetch_rows(self, cols: List[str]) -> int:
         cols_len = len(cols)
         if cols_len > 30:
-            return 200000
+            return 100000
         elif cols_len > 25:
-            return 250000
+            return 120000
         elif cols_len > 20:
-            return 300000
+            return 140000
         elif cols_len > 15:
-            return 350000
+            return 160000
         elif cols_len > 10:
-            return 400000
+            return 180000
         else:
-            return 500000
+            return 200000

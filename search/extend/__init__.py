@@ -25,7 +25,7 @@ scheduler = APScheduler()
 logger.remove(handler_id=None)
 logger.add("log/search_{time:YYYY-MM-DD}.log", rotation="00:00",
            retention="60 days",
-           format="{time:YYYY-MM-DD at HH:mm:ss} | {level} "
+           format="{time:YYYY-MM-DD at HH:mm:ss:SSS} | {level} "
                   "| {module}:{function}:{line} | {process} | {thread} | {message}",
            mode='a+',
            encoding='utf-8',
@@ -33,6 +33,6 @@ logger.add("log/search_{time:YYYY-MM-DD}.log", rotation="00:00",
            diagnose=True)
 
 logger.add(sys.stdout,
-           format="{time:YYYY-MM-DD at HH:mm:ss} | {level} "
+           format="{time:YYYY-MM-DD at HH:mm:ss:SSS} | {level} "
                   "| {module}:{function}:{line} | {process} | {thread} | {message}"
            )

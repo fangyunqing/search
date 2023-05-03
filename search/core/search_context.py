@@ -10,7 +10,7 @@ import hashlib
 import time
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Any, Tuple
 
 import redis
 import simplejson
@@ -43,7 +43,7 @@ class SearchBuffer(BaseDataClass):
     tmp_field_list: List[str] = field(default_factory=lambda: [])
     # 查询的字段
     select_fields: Set[str] = field(default_factory=lambda: set())
-    # 临时的字段
+    # 临时字段
     tmp_fields: Set[str] = field(default_factory=lambda: set())
     # 参数
     args: List[str] = field(default_factory=lambda: [])
@@ -53,8 +53,12 @@ class SearchBuffer(BaseDataClass):
     join_fields: List[str] = field(default_factory=lambda: [])
     # from表达式
     where_expression: str = ""
+    # join
+    join_expression: List[str] = field(default_factory=lambda: [])
     # 临时表名
     tmp_tablename: str = None
+    # 临时字段序列
+    tmp_fields_list: List[List] = field(default_factory=lambda: [])
 
 
 @dataclass
@@ -189,7 +193,7 @@ class SearchContextManager(ISearchContextManager):
                                             for search_condition in search_condition_list}
                 sc.cache_dir = current_app.config.setdefault("FILE_DIR", constant.DEFAULT_FILE_DIR)
 
-                self._field(search_context=sc, search_md5=search_md5)
+                self._field(search_context=sc)
                 self._condition(search_context=sc, search_md5=search_md5)
 
                 r.setex(name=key, value=simplejson.dumps(data2DictOrList(sc.to_dict())), time=432000)
@@ -214,7 +218,9 @@ class SearchContextManager(ISearchContextManager):
     @classmethod
     def _condition(cls, search_context: SearchContext, search_md5: SearchMd5):
         for search_buffer in search_context.search_buffer_list:
-            del_logic = False
+
+            search_sql_condition_dict = {search_sql_condition.real_right: search_sql_condition
+                                         for search_sql_condition in search_buffer.search_sql_conditions}
             where_expression_list = []
             for fe in search_buffer.where_expression.split():
                 if fe.startswith("condition."):
@@ -229,54 +235,38 @@ class SearchContextManager(ISearchContextManager):
                         search_buffer.args.append(search_md5.search_conditions[condition_name])
                         search_buffer.args_seq.append(condition_name)
                     else:
-                        find_search_sql_condition_list = \
-                            [search_sql_condition for search_sql_condition in search_buffer.search_sql_conditions
-                             if condition_name == search_sql_condition.right.split(".")[-1]]
-                        if len(find_search_sql_condition_list) == 0:
-                            raise SearchException(f"{search_md5.search_name}不可描述的错误")
-                        find_search_sql_condition = find_search_sql_condition_list[0]
-                        for index in range(len(where_expression_list) - 1, -1, -1):
-                            if not where_expression_list[index].endswith(find_search_sql_condition.left):
-                                where_expression_list.pop(index)
-                            else:
-                                left = where_expression_list[index].replace(find_search_sql_condition.left, "").strip()
-                                if len(left) == 0:
-                                    where_expression_list.pop(index)
-                                else:
-                                    where_expression_list[index] = left
-                                break
-
-                        for index in range(len(where_expression_list) - 1, -1, -1):
-                            if where_expression_list[index] in ["AND", "OR"]:
-                                where_expression_list.pop(index)
-                                break
-                            elif where_expression_list[index] == "WHERE":
-                                del_logic = True
-                                break
+                        search_sql_condition = search_sql_condition_dict[condition_name]
+                        while where_expression_list[-1] != search_sql_condition.left:
+                            where_expression_list.pop(-1)
+                        where_expression_list.pop(-1)
+                        if len(where_expression_list) > 0 and where_expression_list[-1] in ["AND", "OR"]:
+                            where_expression_list.pop(-1)
                 else:
-                    if fe not in ["AND", "OR"] or not del_logic:
-                        where_expression_list.append(fe)
-                    elif fe in ["AND", "OR"] and del_logic:
-                        del_logic = False
-            if where_expression_list[0] in ["AND", "OR"]:
+                    where_expression_list.append(fe)
+            if len(where_expression_list) > 0 and where_expression_list[0] in ["AND", "OR"]:
                 where_expression_list = where_expression_list[1:]
             search_buffer.where_expression = " ".join(where_expression_list)
-            while "( )" in search_buffer.where_expression:
-                search_buffer.where_expression = search_buffer.where_expression.replace("( )", "")
 
     @classmethod
-    def _field(cls, search_context: SearchContext, search_md5: SearchMd5):
-        tmp_table: Dict[str, str] = {}
+    def _field(cls, search_context: SearchContext):
+        tmp_table: Dict[str, Munch] = {}
+        search_context_dict: Dict[int, Munch] = {search_buffer.search_sql.id: search_buffer
+                                                 for search_buffer in search_context.search_buffer_list}
         for search_buffer in search_context.search_buffer_list:
+
+            search_sql_result_dict = {search_sql_result.real_right: search_sql_result
+                                      for search_sql_result in search_buffer.search_sql_results}
+
             group_by = False
+            join_dict = {}
             if search_buffer.search_sql.other_expression and 'GROUP BY' in search_buffer.search_sql.other_expression:
                 group_by = True
             # 临时表名
             tmp_md5 = hashlib.md5(",".join(search_buffer.select_fields).encode(encoding='utf-8')).hexdigest()
             search_buffer.tmp_tablename = "#{}" + "_" + str(search_buffer.search_sql.id) + "_" + tmp_md5
-            # 临时字段对应临时表明
+            # 临时字段对应临时表名
             for tmp_field in search_buffer.tmp_fields:
-                tmp_table[tmp_field] = search_buffer.tmp_tablename
+                tmp_table[tmp_field] = search_buffer.search_sql.id
 
             for sf in search_buffer.search_sql_fields:
                 if sf.right.split(".")[-1] in search_buffer.select_fields:
@@ -297,22 +287,39 @@ class SearchContextManager(ISearchContextManager):
             for fe in search_buffer.search_sql.where_expression.split():
                 if fe.startswith("result."):
                     field_name = fe.split(".")[-1]
-                    for rf in search_buffer.search_sql_results:
-                        if rf.right.split(".")[-1] == field_name:
-                            search_buffer.select_fields.append(field_name)
-                            if group_by:
-                                search_buffer.field_list.append(f"MAX({rf.left}) {field_name}")
-                            else:
-                                search_buffer.field_list.append(f"{rf.left} {field_name}")
-                            search_buffer.join_fields.append(field_name)
-                            where_expression_list.append(
-                                f"(select {field_name} from {tmp_table[field_name]})")
-                            break
-
+                    search_sql_result = search_sql_result_dict[field_name]
+                    search_buffer.select_fields.append(field_name)
+                    if group_by:
+                        search_buffer.field_list.append(f"MAX({search_sql_result.left}) {field_name}")
+                    else:
+                        search_buffer.field_list.append(f"{search_sql_result.left} {field_name}")
+                    search_buffer.join_fields.append(field_name)
+                    while where_expression_list[-1] != search_sql_result.left:
+                        where_expression_list.pop(-1)
+                    where_expression_list.pop(-1)
+                    if len(where_expression_list) > 0 and where_expression_list[-1] in ["AND", "OR"]:
+                        where_expression_list.pop(-1)
+                    join_dict.setdefault(tmp_table[field_name], {})[field_name] = search_sql_result.left
                 else:
                     where_expression_list.append(fe)
 
+            if len(where_expression_list) > 0 and where_expression_list[0] in ["AND", "OR"]:
+                where_expression_list = where_expression_list[1:]
             search_buffer.where_expression = " ".join(where_expression_list)
+            if len(join_dict) > 0:
+                on_list = []
+                for k, v in join_dict.items():
+                    depend_search_buffer = search_context_dict[k]
+                    depend_fields = list(v.keys())
+                    depend_fields.sort()
+                    tt = depend_search_buffer.tmp_tablename + "_" + "_".join(depend_fields)
+                    if depend_fields not in depend_search_buffer.tmp_fields_list:
+                        depend_search_buffer.tmp_fields_list.append(depend_fields)
+                    for v0 in depend_fields:
+                        v1 = v[v0]
+                        on_list.append(f"{tt}.{v0} = {v1}")
+                    on_str = " AND ".join(on_list)
+                    search_buffer.join_expression.append(f"JOIN {tt} ON {on_str}")
 
     @classmethod
     def _pack_search_buffer(cls, search_sql: models.SearchSQL) -> SearchBuffer:
