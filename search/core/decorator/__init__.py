@@ -6,3 +6,4 @@
 __author__ = 'fyq'
 
 from .transactional import transactional
+from .search_cost_time import search_cost_time

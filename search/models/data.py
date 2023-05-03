@@ -286,6 +286,8 @@ class SearchRecord(db.Model, SerializerMixin):
     __tablename__ = "search_record"
     # 主键
     id = Column(Integer, primary_key=True, autoincrement=True)
+    # 记录ID
+    record_id = Column(String(128))
     # 搜索的ID
     search_id = Column(Integer)
     # md5
@@ -293,7 +295,7 @@ class SearchRecord(db.Model, SerializerMixin):
     # json
     search_json = Column(Text)
     # 执行时间
-    search_time = Column(Numeric(20, 10))
+    search_time = Column(Numeric(20, 3))
     # 前缀
     search_prefix = Column(String(128))
     # 后缀

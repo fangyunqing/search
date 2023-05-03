@@ -18,6 +18,7 @@ from loguru import logger
 from pyext import RuntimeModule
 
 from search import dm
+from search.core.decorator import search_cost_time
 from search.core.progress import Progress
 from search.core.search_context import SearchContext
 from search.core.strategy import FetchLengthStrategy
@@ -35,6 +36,7 @@ class DBSearchPolarsCache(metaclass=ABCMeta):
 
 class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
 
+    @search_cost_time
     def get_data(self, search_context: SearchContext, top: bool = False) -> Optional[pl.DataFrame]:
         # 所有的连接数
         conn_list = dm.get_connections()

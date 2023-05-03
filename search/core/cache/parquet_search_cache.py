@@ -19,6 +19,7 @@ from sqlalchemy import desc
 
 from search import models, constant, db
 from search.core.cache import CommonRedisSearchCache
+from search.core.decorator import search_cost_time
 from search.core.page import Page
 from search.core.progress import Progress
 from search.core.search_context import SearchContext
@@ -81,6 +82,7 @@ class AbstractParquetSearchCache(ParquetSearchCache):
             raise FileNotFindSearchException
         return [data, page]
 
+    @search_cost_time
     def set_data(self, search_context: SearchContext, data_df: pl.DataFrame, file_dir: str):
         cache_size = search_context.search.page_size * search_context.search.pages * self.number_of_pages
         spilt_len = math.ceil(len(data_df) / cache_size)

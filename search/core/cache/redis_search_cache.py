@@ -16,6 +16,7 @@ from loguru import logger
 from redis import Redis
 
 from search import constant
+from search.core.decorator import search_cost_time
 from search.core.json_encode import SearchEncoder
 from search.core.page import Page
 from search.core.progress import Progress
@@ -62,23 +63,14 @@ class AbstractRedisSearchCache(RedisSearchCache):
             page["number"] = str(page_number)
         return [data, page]
 
+    @search_cost_time
     def set_data(self, search_context: SearchContext, data_df: pl.DataFrame, page_begin: int = 1, whole: bool = True):
         r = redis.Redis(connection_pool=redis_pool)
-        self.count(search_context=search_context, data_df=data_df)
+        self.count()
         self.exec(r=r,
                   search_context=search_context,
                   data_df=data_df,
                   page_number=page_begin)
-
-        # for index in range(0, self.count(search_context=search_context, data_df=data_df)):
-        #     chunk_df: pl.DataFrame = data_df.slice(page_size * index, page_size)
-        #     if len(chunk_df) > 0:
-        #         self.exec(r=r,
-        #                   search_context=search_context,
-        #                   chunk_df=chunk_df,
-        #                   page_number=page_begin)
-        #         page_begin += 1
-
         value: bytes = r.get(name=f"{search_context.search_key}_{constant.CSV}")
         page_size = search_context.search.page_size
         if value:
@@ -101,7 +93,7 @@ class AbstractRedisSearchCache(RedisSearchCache):
                 time=search_context.search.redis_cache_time)
 
     @abstractmethod
-    def count(self, search_context: SearchContext, data_df: pl.DataFrame):
+    def count(self):
         pass
 
     @abstractmethod
@@ -112,8 +104,7 @@ class AbstractRedisSearchCache(RedisSearchCache):
 class CommonRedisSearchCache(AbstractRedisSearchCache):
     execs = ["exec"]
 
-    def count(self, search_context: SearchContext, data_df: pl.DataFrame):
-        page_size = search_context.search.page_size
+    def count(self):
         return 1
 
     def exec(self, search_context: SearchContext, r: Redis, data_df: pl.DataFrame, page_number: int):

@@ -8,6 +8,7 @@ __author__ = 'fyq'
 import functools
 import math
 import time
+import uuid
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from inspect import isgeneratorfunction
@@ -92,7 +93,10 @@ class ProgressStep(metaclass=ABCMeta):
         }
 
     def to_db(self):
+        record_id = uuid.uuid4()
         for p, v in self._progress_infos.items():
+            for r in v.records:
+                r.record_id = record_id
             db.session.add_all(v.records)
         db.session.commit()
 
@@ -154,7 +158,7 @@ class Progress:
             try:
                 begin_time = time.perf_counter()
                 res = f(*args, **kwargs)
-                end_time = time.perf_counter() - begin_time
+                end_time = round(time.perf_counter() - begin_time, 3)
                 if search_md5:
                     progress_step = progress_manager.get_progress_step(self._prefix, search_md5)
                     progress_info = progress_step.get_progress_info(self._suffix)

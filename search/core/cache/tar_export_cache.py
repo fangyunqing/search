@@ -18,6 +18,7 @@ from sqlalchemy import desc
 
 from search import constant
 from search import models, db
+from search.core.decorator import search_cost_time
 from search.core.progress import Progress
 from search.core.search_context import SearchContext
 
@@ -44,6 +45,7 @@ class AbstractTarExportCache(TarExportCache):
             .first()
         return search_file
 
+    @search_cost_time
     def set_data(self, search_context: SearchContext, data_df: pd.DataFrame, file_dir: str):
 
         def remove(val):
@@ -77,10 +79,7 @@ class AbstractTarExportCache(TarExportCache):
                               tar_dir=tar_dir,
                               file_path_list=file_path_list)
             tar_path = f"{tar_dir}{os.path.sep}{search_context.search.name}.tar.gz"
-            with tarfile.open(name=tar_path, mode="w:gz", encoding='utf-8') as tar:
-                for file_path in file_path_list:
-                    d, f = os.path.split(file_path)
-                    tar.add(file_path, arcname=f)
+            self.exec_tar(tar_path, file_path_list)
 
             d, f = os.path.split(tar_path)
             search_file = models.SearchFile()
@@ -106,13 +105,24 @@ class AbstractTarExportCache(TarExportCache):
              file_path_list: List[str]):
         pass
 
+    @abstractmethod
+    def exec_tar(self, tar_path: str, file_path_list: List):
+        pass
+
 
 @Progress(prefix="export", suffix="tar")
 class DefaultTarExportCache(AbstractTarExportCache):
-    execs = ["exec"]
+
+    def exec_tar(self, tar_path: str, file_path_list: List):
+        with tarfile.open(name=tar_path, mode="w:gz", encoding='utf-8') as tar:
+            for file_path in file_path_list:
+                d, f = os.path.split(file_path)
+                tar.add(file_path, arcname=f)
+
+    execs = ["exec", "exec_tar"]
 
     def count(self, data_df: pd.DataFrame, size: int):
-        return math.ceil(len(data_df) / size)
+        return math.ceil(len(data_df) / size) + 1
 
     def exec(self, search_context: SearchContext, chunk_df: pd.DataFrame, index: int, tar_dir: str,
              file_path_list: List[str]):
