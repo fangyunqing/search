@@ -1,11 +1,11 @@
 FROM python:3.9
 WORKDIR /search
-RUN apt-get update
-&& apt-get install curl
-&& curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
-&& curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.d/mssql-release.list
-&& apt-get update
-&& apt-get install unixODBC unixODBC-dev
+RUN apt-get update \
+&& apt-get install curl \
+&& curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
+&& curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.d/mssql-release.list \
+&& apt-get update \
+&& apt-get install unixODBC unixODBC-dev \
 && ACCEPT_EULA=Y apt-get install -y msodbcsql17
 RUN echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
 RUN source ~/.bashrc
