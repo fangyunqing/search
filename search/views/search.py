@@ -51,11 +51,10 @@ def condition():
                             for data in datas:
                                 key = None
                                 value = None
-                                data_list = list(data.values())
                                 if len(data) > 0:
-                                    key = data_list[0]
+                                    key = data[0]
                                 if len(data) > 1:
-                                    value = str(data_list[1])
+                                    value = str(data[1])
                                 if key and value:
                                     search_condition.lookup_values.append({
                                         "key": key,
@@ -64,8 +63,7 @@ def condition():
                         else:
                             for data in datas:
                                 if len(data) > 0:
-                                    data_list = list(data.values())
-                                    search_condition.list_values.append(str(data_list[0]))
+                                    search_condition.list_values.append(str(data[0]))
                     except Exception as e:
                         logger.exception(e)
         finally:

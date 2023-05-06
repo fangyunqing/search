@@ -7,10 +7,10 @@ __author__ = 'fyq'
 
 import copy
 import hashlib
-import time
+import math
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Tuple
 
 import redis
 import simplejson
@@ -21,11 +21,15 @@ from sortedcontainers import SortedKeyList
 import search.constant as constant
 from search import models
 from search.core.search_md5 import SearchMd5
+from search.core.search_weight import SearchWeight
 from search.entity.common_result import BaseDataClass
 from search.exceptions import SearchException
 from search.extend import redis_pool
 from search.util.convert import data2munch, data2DictOrList
 from search.util.redis import redis_lock
+
+from datetime import datetime
+from dateutil import rrule
 
 
 @dataclass
@@ -78,6 +82,8 @@ class SearchContext(BaseDataClass):
     search_buffer_list: List[Munch] = field(default_factory=lambda: [])
     # 缓存目录
     cache_dir: str = None
+    # 查询分数
+    score: Tuple[int, str] = field(default_factory=lambda: ())
 
 
 class ISearchContextManager(metaclass=ABCMeta):
@@ -130,6 +136,7 @@ class AbstractSearchContextManager(ISearchContextManager):
                     sc.search_field_list = m.search_field_list
                     sc.search_condition_dict = m.search_condition_dict
                     sc.cache_dir = m.cache_dir
+                    sc.score = m.score
                     return sc
                 else:
                     sc = self._init_search_context(search_md5=search_md5)
@@ -165,10 +172,19 @@ class AbstractSearchContextManager(ISearchContextManager):
 
     @abstractmethod
     def _type(self, search_context: SearchContext) -> None:
+        """
+            为查询定级
+            l m s ss
+        :param search_context:
+        :return:
+        """
         pass
 
 
 class SearchContextManager(AbstractSearchContextManager):
+
+    def __init__(self):
+        self._search_weight = SearchWeight()
 
     def _init_search_context(self, search_md5: SearchMd5) -> SearchContext:
         # 查询
@@ -238,7 +254,26 @@ class SearchContextManager(AbstractSearchContextManager):
         return sc
 
     def _type(self, search_context: SearchContext) -> None:
-        pass
+        time_values = []
+        for k, v in search_context.search_condition_dict.items():
+            if v.condition_type == constant.ConditionType.TIME:
+                time_values.append(search_context.search_md5.search_conditions[k])
+
+        dt1 = datetime.strptime(time_values[0], "%Y-%m-%d")
+        dt2 = datetime.strptime(time_values[1], "%Y-%m-%d")
+
+        days = max(rrule.rrule(freq=rrule.DAILY,
+                               dtstart=dt1,
+                               until=dt2).count(),
+                   rrule.rrule(freq=rrule.DAILY,
+                               dtstart=dt2,
+                               until=dt1).count())
+        field_count = len(search_context.search_md5.search_original_field_list)
+        condition_count = len(search_context.search_md5.search_sort_condition_list)
+
+        search_context.score = self._search_weight.weight(days=days,
+                                                          field_count=field_count,
+                                                          condition_count=condition_count)
 
     def _condition(self, search_context: SearchContext):
         for search_buffer in search_context.search_buffer_list:
