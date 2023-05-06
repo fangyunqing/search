@@ -79,7 +79,7 @@ class AbstractTarExportCache(TarExportCache):
                               tar_dir=tar_dir,
                               file_path_list=file_path_list)
             tar_path = f"{tar_dir}{os.path.sep}{search_context.search.name}.tar.gz"
-            self.exec_tar(tar_path, file_path_list)
+            self.exec_tar(search_context, tar_path, file_path_list)
 
             d, f = os.path.split(tar_path)
             search_file = models.SearchFile()
@@ -106,14 +106,14 @@ class AbstractTarExportCache(TarExportCache):
         pass
 
     @abstractmethod
-    def exec_tar(self, tar_path: str, file_path_list: List):
+    def exec_tar(self, search_context: SearchContext, tar_path: str, file_path_list: List):
         pass
 
 
 @Progress(prefix="export", suffix="tar")
 class DefaultTarExportCache(AbstractTarExportCache):
 
-    def exec_tar(self, tar_path: str, file_path_list: List):
+    def exec_tar(self, search_context: SearchContext, tar_path: str, file_path_list: List):
         with tarfile.open(name=tar_path, mode="w:gz", encoding='utf-8') as tar:
             for file_path in file_path_list:
                 d, f = os.path.split(file_path)

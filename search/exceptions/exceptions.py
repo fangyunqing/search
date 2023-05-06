@@ -5,6 +5,8 @@
 
 __author__ = 'fyq'
 
+from typing import Union, List
+
 
 class SearchException(Exception):
     pass
@@ -32,3 +34,15 @@ class MustNotHaveSubSelectException(SearchSqlParseException):
 
 class FileNotFindSearchException(SearchException):
     pass
+
+
+class FieldNameException(SearchException):
+
+    def __init__(self, sql_name: str, fields: Union[str, List]):
+        if isinstance(fields, str):
+            f = fields
+        elif isinstance(fields, list):
+            f = ",".join(fields)
+        else:
+            f = "unknown"
+        super(FieldNameException, self).__init__(f"sql查询[{sql_name}]中查询字段[{f}]请以(i,n,u,s,t,d,b)开头")

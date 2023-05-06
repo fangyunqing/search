@@ -15,6 +15,7 @@ from search.entity import DataBaseType
 from search.exceptions import SearchException
 from search.models import SearchDatasource
 import munch
+import pyodbc
 
 
 class DataBasePool:
@@ -37,28 +38,31 @@ class DataBasePool:
         if DataBaseType.MYSQL == db_type:
             pass
         elif DataBaseType.SQLSERVER == db_type:
-            creator = pymssql
-            config["host"] = host
+            creator = pyodbc
+            config["dsn"] = "MSSQL"
+            config["server"] = host
             config["port"] = port
             config["user"] = user
             config["password"] = password
             config["database"] = db_name
-            # query timeout in seconds, default 0 (no timeout)
-            config["timeout"] = kwargs.pop("timeout", 0)
-            # timeout for connection and login in seconds, default 60
-            config["login_timeout"] = kwargs.pop("login_timeout", 60)
-            # # whether rows should be returned as dictionaries instead of tuples.
-            # config["as_dict"] = kwargs.pop("as_dict", True)
-            # Set the application name to use for the connection
-            config["appname"] = kwargs.pop("appname", None)
-            # Whether to use default autocommit mode or not
-            config["autocommit"] = kwargs.pop("autocommit", None)
-            # TDS protocol version to use.
-            config["tds_version"] = kwargs.pop("tds_version", None)
-            # 编码
-            config["charset"] = kwargs.pop("charset", "utf8")
-            # 结果类型
-            config["as_dict"] = True
+            config["atuocommit"] = True
+            config["ColumnEncryption"] = "Enabled"
+            # # query timeout in seconds, default 0 (no timeout)
+            # config["timeout"] = kwargs.pop("timeout", 0)
+            # # timeout for connection and login in seconds, default 60
+            # config["login_timeout"] = kwargs.pop("login_timeout", 60)
+            # # # whether rows should be returned as dictionaries instead of tuples.
+            # # config["as_dict"] = kwargs.pop("as_dict", True)
+            # # Set the application name to use for the connection
+            # config["appname"] = kwargs.pop("appname", None)
+            # # Whether to use default autocommit mode or not
+            # config["autocommit"] = kwargs.pop("autocommit", None)
+            # # TDS protocol version to use.
+            # config["tds_version"] = kwargs.pop("tds_version", None)
+            # # 编码
+            # config["charset"] = kwargs.pop("charset", "utf8")
+            # # 结果类型
+            # config["as_dict"] = True
         elif DataBaseType.ORACLE == db_type:
             pass
 

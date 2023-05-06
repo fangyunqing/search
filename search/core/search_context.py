@@ -228,10 +228,10 @@ class SearchContextManager(ISearchContextManager):
                     search_condition = search_context.search_condition_dict.get(condition_name, None)
                     if search_condition and condition_name in search_md5.search_sort_condition_list:
                         if search_condition.fuzzy_query == "1":
-                            where_expression_list.append("'%'+%s+'%'")
+                            where_expression_list.append("'%'+?+'%'")
                             where_expression_list[-2] = "LIKE"
                         else:
-                            where_expression_list.append("%s")
+                            where_expression_list.append("?")
                         search_buffer.args.append(search_md5.search_conditions[condition_name])
                         search_buffer.args_seq.append(condition_name)
                     else:

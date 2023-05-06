@@ -12,12 +12,10 @@ from typing import List, Any
 import polars as pl
 import redis
 import simplejson as json
-from loguru import logger
 from redis import Redis
 
 from search import constant
 from search.core.decorator import search_cost_time
-from search.core.json_encode import SearchEncoder
 from search.core.page import Page
 from search.core.progress import Progress
 from search.core.search_context import SearchContext
@@ -115,7 +113,7 @@ class CommonRedisSearchCache(AbstractRedisSearchCache):
                 chunk_df: pl.DataFrame = data_df.slice(page_size * index, page_size)
                 if len(chunk_df) > 0:
                     redis_key: str = f"{search_context.search_key}_{page_number}"
-                    data = json.dumps(chunk_df.to_dicts(), cls=SearchEncoder, ignore_nan=True)
+                    data = chunk_df.write_json(row_oriented=True)
                     pipe.setex(name=redis_key,
                                time=search_context.search.redis_cache_time,
                                value=data)

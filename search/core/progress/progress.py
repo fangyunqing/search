@@ -168,7 +168,6 @@ class Progress:
                     search_context: SearchContext = kwargs.get("search_context", None)
                     if search_context:
                         sql: str = kwargs.get("sql")
-                        tmp_sql_list: List[str] = kwargs.get("tmp_sql_list")
                         search_record: models.SearchRecord = models.SearchRecord()
                         search_record.search_key = search_context.search_key
                         search_record.search_id = search_context.search.id
@@ -177,13 +176,8 @@ class Progress:
                         search_record.order = new_step_no
                         search_record.search_suffix = self._suffix
                         search_record.search_prefix = self._prefix
-                        if sql or tmp_sql_list:
-                            sql_list = []
-                            if tmp_sql_list:
-                                sql_list.extend(tmp_sql_list)
-                            if sql:
-                                sql_list.append(sql)
-                            search_record.memo = "\n".join(sql_list)
+                        if sql:
+                            search_record.memo = sql
                         progress_info.records.append(search_record)
 
                         r = redis.Redis(connection_pool=redis_pool)
