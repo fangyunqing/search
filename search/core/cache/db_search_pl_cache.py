@@ -171,6 +171,8 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                                                    how=file_info.get('search_buffer').search_sql.how,
                                                    on=file_info.get('search_buffer').join_fields)
 
+            if data_df is None:
+                return pl.DataFrame()
             return self.exec_new_df(search_context=search_context,
                                     df=data_df)
         finally:

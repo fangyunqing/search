@@ -79,7 +79,9 @@ class AbstractTarExportCache(TarExportCache):
                               tar_dir=tar_dir,
                               file_path_list=file_path_list)
             tar_path = f"{tar_dir}{os.path.sep}{search_context.search.name}.tar.gz"
-            self.exec_tar(search_context, tar_path, file_path_list)
+            self.exec_tar(search_context = search_context,
+                          tar_path=tar_path,
+                          file_path_list=file_path_list)
 
             d, f = os.path.split(tar_path)
             search_file = models.SearchFile()

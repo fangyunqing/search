@@ -10,7 +10,7 @@ import hashlib
 import time
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Dict, Set, Any, Tuple
+from typing import List, Dict, Set
 
 import redis
 import simplejson
@@ -25,6 +25,7 @@ from search.entity.common_result import BaseDataClass
 from search.exceptions import SearchException
 from search.extend import redis_pool
 from search.util.convert import data2munch, data2DictOrList
+from search.util.redis import redis_lock
 
 
 @dataclass
@@ -90,13 +91,10 @@ class ISearchContextManager(metaclass=ABCMeta):
         pass
 
 
-class SearchContextManager(ISearchContextManager):
-
-    def __init__(self):
-        pass
+class AbstractSearchContextManager(ISearchContextManager):
 
     def get_search_context(self, search_md5: SearchMd5) -> SearchContext:
-
+        # 查询是否可用
         search: models.Search = \
             models.Search.query.filter_by(name=search_md5.search_name).first()
         if not search:
@@ -104,119 +102,145 @@ class SearchContextManager(ISearchContextManager):
         if search.usable == "0" or search.status != constant.SearchStatus.ACCESS:
             raise SearchException(f"{search_md5.search_name}不可用")
 
-        r = redis.Redis(connection_pool=redis_pool)
+        # 查询条件是否符合
+        search_condition_list: List[models.SearchCondition] = models.SearchCondition.query.filter_by(
+            search_id=search.id).order_by(models.SearchCondition.order).all()
+        not_normal_list = []
+        for search_condition in search_condition_list:
+            if search_condition.condition_type == constant.ConditionType.TIME \
+                    and search_condition.name not in search_md5.search_sort_condition_list:
+                not_normal_list.append(search_condition.display)
+        if len(not_normal_list) > 0:
+            raise SearchException(f"条件[{not_normal_list}]不能为空")
 
-        while not r.setnx(name=constant.RedisKey.SEARCH_CONTEXT_LOCK, value=1):
-            time.sleep(100)
-
-        try:
-            # 查询条件
-            search_condition_list: List[models.SearchCondition] = models.SearchCondition.query.filter_by(
-                search_id=search.id).order_by(models.SearchCondition.order).all()
-            not_normal_list = []
-            for search_condition in search_condition_list:
-                if search_condition.condition_type == constant.ConditionType.TIME \
-                        and search_condition.name not in search_md5.search_sort_condition_list:
-                    not_normal_list.append(search_condition.display)
-            if len(not_normal_list) > 0:
-                raise SearchException(f"条件[{not_normal_list}]不能为空")
-
-            key = f"{search.name}_v{search.version}_" + search_md5.search_md5
-            value: bytes = r.get(key)
-            if value:
-                m = data2munch(simplejson.loads(value.decode()))
-                sc = SearchContext()
-                sc.search = m.search
-                sc.search_key = m.search_key
-                sc.search_md5 = m.search_md5
-                sc.search_buffer_list = m.search_buffer_list
-                sc.search_field_list = m.search_field_list
-                sc.search_condition_dict = m.search_condition_dict
-                sc.cache_dir = m.cache_dir
-                return sc
-            else:
-                # 查询sql
-                search_sql_list: List[models.SearchSQL] = models.SearchSQL.query.filter_by(
-                    search_id=search.id).order_by(models.SearchSQL.order).all()
-                # 查询字段
-                search_field_list: List[models.SearchField] = models.SearchField.query.filter_by(
-                    search_id=search.id).order_by(models.SearchField.order).all()
-                search_sql_dict: Dict[int, models.SearchSQL] = {search_sql.id: search_sql
-                                                                for search_sql in search_sql_list}
-
-                search_buffer_dict: Dict[int, SearchBuffer] = {}
-                for search_field in search_field_list:
-                    if search_field.name in search_md5.search_sort_field_list:
-                        for sp in search_field.search_field_gen_paths:
-                            if sp.search_sql_id in search_buffer_dict:
-                                search_buffer = search_buffer_dict[sp.search_sql_id]
-                            else:
-                                search_buffer = self._pack_search_buffer(search_sql_dict[sp.search_sql_id])
-                                search_buffer_dict[sp.search_sql_id] = search_buffer
-                            search_buffer.select_fields.add(sp.depend_field)
-                            if sp.order > 0:
-                                search_buffer.tmp_fields.add(sp.depend_field)
-
-                copy_search_sql_list = copy.copy(search_sql_list)
-                for condition in search_md5.search_sort_condition_list:
-                    if len(copy_search_sql_list) > 0:
-                        for index, search_sql in enumerate(copy_search_sql_list):
-                            if condition in [search_sql_condition.real_right
-                                             for search_sql_condition in search_sql.conditions]:
-                                if search_sql.id not in search_buffer_dict.keys():
-                                    search_buffer_dict[search_sql.id] = self._pack_search_buffer(search_sql)
-                                if search_sql.depend and len(search_sql.depend) > 0:
-                                    for depend_search_sql_id in [int(search_sql_id)
-                                                                 for search_sql_id in search_sql.depend.split(",")]:
-                                        if depend_search_sql_id not in search_buffer_dict.keys():
-                                            search_buffer_dict[search_sql.id] = \
-                                                self._pack_search_buffer(search_sql_dict[depend_search_sql_id])
-                                copy_search_sql_list.pop(index)
-                                break
-
-                for search_sql_id, search_buffer in search_buffer_dict.items():
-                    for search_sql_result in search_buffer.search_sql_results:
-                        target_search_buffer = search_buffer_dict[search_sql_result.depend_search_sql_id]
-                        target_search_buffer.select_fields.add(search_sql_result.real_right)
-                        target_search_buffer.tmp_fields.add(search_sql_result.real_right)
-
-                search_buffer_list = SortedKeyList(iterable=search_buffer_dict.values(),
-                                                   key=lambda item: item.search_sql.order)
-
-                sc = SearchContext()
-                sc.search = Munch(search.to_dict())
-                sc.search_md5 = search_md5
-                sc.search_key = key
-                sc.search_buffer_list = [Munch(search_buffer.to_dict()) for search_buffer in search_buffer_list]
-                sc.search_field_list = [Munch(search_field.to_dict()) for search_field in search_field_list]
-                sc.search_condition_dict = {search_condition.name: Munch(search_condition.to_dict())
-                                            for search_condition in search_condition_list}
-                sc.cache_dir = current_app.config.setdefault("FILE_DIR", constant.DEFAULT_FILE_DIR)
-
-                self._field(search_context=sc)
-                self._condition(search_context=sc, search_md5=search_md5)
-
-                r.setex(name=key, value=simplejson.dumps(data2DictOrList(sc.to_dict())), time=432000)
-
-                return sc
-        finally:
-            r.delete(constant.RedisKey.SEARCH_CONTEXT_LOCK)
+        with redis_lock(key=constant.RedisKey.SEARCH_CONTEXT_LOCK,
+                        ex=600,
+                        forever=True) as res:
+            if res:
+                r = redis.Redis(connection_pool=redis_pool)
+                key = f"{search.name}_v{search.version}_" + search_md5.search_md5
+                value: bytes = r.get(key)
+                if value:
+                    m = data2munch(simplejson.loads(value.decode()))
+                    sc = SearchContext()
+                    sc.search = m.search
+                    sc.search_key = m.search_key
+                    sc.search_md5 = m.search_md5
+                    sc.search_buffer_list = m.search_buffer_list
+                    sc.search_field_list = m.search_field_list
+                    sc.search_condition_dict = m.search_condition_dict
+                    sc.cache_dir = m.cache_dir
+                    return sc
+                else:
+                    sc = self._init_search_context(search_md5=search_md5)
+                    self._field(sc)
+                    self._condition(sc)
+                    self._type(sc)
+                    r.setex(name=key, value=simplejson.dumps(data2DictOrList(sc.to_dict())), time=432000)
+                    return sc
 
     def delete_search_context(self, search_name: str):
-        r = redis.Redis(connection_pool=redis_pool)
-        while not r.setnx(name=constant.RedisKey.SEARCH_CONTEXT_LOCK, value=1):
-            time.sleep(100)
-        try:
-            search: models.Search = \
-                models.Search.query.filter_by(name=search_name).first()
-            all_keys = r.keys(pattern=f"{search.name}_*")
-            if len(all_keys) > 0:
-                r.delete(*all_keys)
-        finally:
-            r.delete(constant.RedisKey.SEARCH_CONTEXT_LOCK)
+        with redis_lock(key=constant.RedisKey.SEARCH_CONTEXT_LOCK,
+                        ex=600,
+                        forever=True) as res:
+            if res:
+                r = redis.Redis(connection_pool=redis_pool)
+                search: models.Search = \
+                    models.Search.query.filter_by(name=search_name).first()
+                all_keys = r.keys(pattern=f"{search.name}_*")
+                if len(all_keys) > 0:
+                    r.delete(*all_keys)
 
-    @classmethod
-    def _condition(cls, search_context: SearchContext, search_md5: SearchMd5):
+    @abstractmethod
+    def _init_search_context(self, search_md5: SearchMd5) -> SearchContext:
+        pass
+
+    @abstractmethod
+    def _field(self, search_context: SearchContext) -> None:
+        pass
+
+    @abstractmethod
+    def _condition(self, search_context: SearchContext) -> None:
+        pass
+
+    @abstractmethod
+    def _type(self, search_context: SearchContext) -> None:
+        pass
+
+
+class SearchContextManager(AbstractSearchContextManager):
+
+    def _init_search_context(self, search_md5: SearchMd5) -> SearchContext:
+        # 查询
+        search: models.Search = \
+            models.Search.query.filter_by(name=search_md5.search_name).first()
+        # 查询sql
+        search_sql_list: List[models.SearchSQL] = models.SearchSQL.query.filter_by(
+            search_id=search.id).order_by(models.SearchSQL.order).all()
+        # 查询字段
+        search_field_list: List[models.SearchField] = models.SearchField.query.filter_by(
+            search_id=search.id).order_by(models.SearchField.order).all()
+        search_sql_dict: Dict[int, models.SearchSQL] = {search_sql.id: search_sql
+                                                        for search_sql in search_sql_list}
+        # 查询条件
+        search_condition_list: List[models.SearchCondition] = models.SearchCondition.query.filter_by(
+            search_id=search.id).order_by(models.SearchCondition.order).all()
+
+        search_buffer_dict: Dict[int, SearchBuffer] = {}
+        for search_field in search_field_list:
+            if search_field.name in search_md5.search_sort_field_list:
+                for sp in search_field.search_field_gen_paths:
+                    if sp.search_sql_id in search_buffer_dict:
+                        search_buffer = search_buffer_dict[sp.search_sql_id]
+                    else:
+                        search_buffer = self._pack_search_buffer(search_sql_dict[sp.search_sql_id])
+                        search_buffer_dict[sp.search_sql_id] = search_buffer
+                    search_buffer.select_fields.add(sp.depend_field)
+                    if sp.order > 0:
+                        search_buffer.tmp_fields.add(sp.depend_field)
+
+        copy_search_sql_list = copy.copy(search_sql_list)
+        for condition in search_md5.search_sort_condition_list:
+            if len(copy_search_sql_list) > 0:
+                for index, search_sql in enumerate(copy_search_sql_list):
+                    if condition in [search_sql_condition.real_right
+                                     for search_sql_condition in search_sql.conditions]:
+                        if search_sql.id not in search_buffer_dict.keys():
+                            search_buffer_dict[search_sql.id] = self._pack_search_buffer(search_sql)
+                        if search_sql.depend and len(search_sql.depend) > 0:
+                            for depend_search_sql_id in [int(search_sql_id)
+                                                         for search_sql_id in search_sql.depend.split(",")]:
+                                if depend_search_sql_id not in search_buffer_dict.keys():
+                                    search_buffer_dict[search_sql.id] = \
+                                        self._pack_search_buffer(search_sql_dict[depend_search_sql_id])
+                        copy_search_sql_list.pop(index)
+                        break
+
+        for search_sql_id, search_buffer in search_buffer_dict.items():
+            for search_sql_result in search_buffer.search_sql_results:
+                target_search_buffer = search_buffer_dict[search_sql_result.depend_search_sql_id]
+                target_search_buffer.select_fields.add(search_sql_result.real_right)
+                target_search_buffer.tmp_fields.add(search_sql_result.real_right)
+
+        search_buffer_list = SortedKeyList(iterable=search_buffer_dict.values(),
+                                           key=lambda item: item.search_sql.order)
+
+        sc = SearchContext()
+        sc.search = Munch(search.to_dict())
+        sc.search_md5 = search_md5
+        sc.search_key = f"{search.name}_v{search.version}_" + search_md5.search_md5
+        sc.search_buffer_list = [Munch(search_buffer.to_dict()) for search_buffer in search_buffer_list]
+        sc.search_field_list = [Munch(search_field.to_dict()) for search_field in search_field_list]
+        sc.search_condition_dict = {search_condition.name: Munch(search_condition.to_dict())
+                                    for search_condition in search_condition_list}
+        sc.cache_dir = current_app.config.setdefault("FILE_DIR", constant.DEFAULT_FILE_DIR)
+
+        return sc
+
+    def _type(self, search_context: SearchContext) -> None:
+        pass
+
+    def _condition(self, search_context: SearchContext):
         for search_buffer in search_context.search_buffer_list:
 
             search_sql_condition_dict = {search_sql_condition.real_right: search_sql_condition
@@ -226,13 +250,13 @@ class SearchContextManager(ISearchContextManager):
                 if fe.startswith("condition."):
                     condition_name = fe.split(".")[1]
                     search_condition = search_context.search_condition_dict.get(condition_name, None)
-                    if search_condition and condition_name in search_md5.search_sort_condition_list:
+                    if search_condition and condition_name in search_context.search_md5.search_sort_condition_list:
                         if search_condition.fuzzy_query == "1":
                             where_expression_list.append("'%'+?+'%'")
                             where_expression_list[-2] = "LIKE"
                         else:
                             where_expression_list.append("?")
-                        search_buffer.args.append(search_md5.search_conditions[condition_name])
+                        search_buffer.args.append(search_context.search_md5.search_conditions[condition_name])
                         search_buffer.args_seq.append(condition_name)
                     else:
                         search_sql_condition = search_sql_condition_dict[condition_name]
@@ -247,8 +271,7 @@ class SearchContextManager(ISearchContextManager):
                 where_expression_list = where_expression_list[1:]
             search_buffer.where_expression = " ".join(where_expression_list)
 
-    @classmethod
-    def _field(cls, search_context: SearchContext):
+    def _field(self, search_context: SearchContext):
         tmp_table: Dict[str, Munch] = {}
         search_context_dict: Dict[int, Munch] = {search_buffer.search_sql.id: search_buffer
                                                  for search_buffer in search_context.search_buffer_list}
