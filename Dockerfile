@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python3.9-odbc
 WORKDIR /search
 RUN apt-get update \
 && apt-get install -y curl \
@@ -10,8 +10,6 @@ RUN apt-get update \
 && ACCEPT_EULA=Y apt-get install -y mssql-tools \
 && echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc \
 && echo 'source ~/.bashrc' \
-&& apt-get install -y unixODBC unixODBC-dev \
-&& apt-get install -y libgssapi-krb5-2
 COPY requirements.txt ./
 RUN pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 COPY . .
