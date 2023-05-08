@@ -5,11 +5,12 @@ RUN apt-get update \
 && curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
 && curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.d/mssql-release.list \
 && apt-get update \
+&& ACCEPT_EULA=Y apt-get install -y msodbcsql17 \
+&& ACCEPT_EULA=Y apt-get install -y mssql-tools \
+&& echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc \
+&& source ~/.bashrc \
 && apt-get install -y unixODBC unixODBC-dev \
-&& ACCEPT_EULA=Y apt-get install -y msodbcsql17
-RUN echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
-RUN source ~/.bashrc
-RUN sudo apt-get install -y libgssapi-krb5-2
+&& apt-get install -y libgssapi-krb5-2
 COPY requirements.txt ./
 RUN pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 COPY . .
