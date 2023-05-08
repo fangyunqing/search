@@ -1,4 +1,4 @@
-FROM python3.9-odbc
+FROM thomasgjerde/python3.9-odbc
 WORKDIR /search
 RUN apt-get update \
 && apt-get install -y curl \
