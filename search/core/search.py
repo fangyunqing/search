@@ -42,6 +42,10 @@ class ISearch(metaclass=ABCMeta):
     def search_progress(self, data: str) -> dict:
         pass
 
+    @abstractmethod
+    def test_search(self, data: str) -> dict:
+        pass
+
 
 class Search(ISearch):
 
@@ -115,12 +119,20 @@ class Search(ISearch):
                     progress_manager.set_new_progress_step(constant.SEARCH, search_context.search_key)
                     thread_pool.submit(self._search_thread_func,
                                        current_app._get_current_object(),
-                                       search_context)\
+                                       search_context) \
                         .add_done_callback(lambda f: r.delete(thread_key))
         if data is None:
             return CommonResult.fail(code=MessageCode.NOT_READY.code, message=MessageCode.NOT_READY.desc)
         else:
             return CommonResult.success(data={"list": data, "page": page})
+
+    def test_search(self, data: str) -> dict:
+        m = json.loads(data)
+        search_md5: SearchMd5 = create_search_md5(m)
+        search_context: SearchContext = scm.get_search_context(search_md5)
+        self._db_export_cache.get_data(search_context=search_context,
+                                       top=False)
+        return CommonResult.success()
 
     def export(self, data: str) -> Response:
         """
@@ -156,7 +168,7 @@ class Search(ISearch):
                 progress_manager.set_new_progress_step(constant.EXPORT, search_context.search_key)
                 thread_pool.submit(self._export_thread_func,
                                    current_app._get_current_object(),
-                                   search_context)\
+                                   search_context) \
                     .add_done_callback(lambda f: r.delete(thread_key))
 
             response = make_response()
