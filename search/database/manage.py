@@ -78,7 +78,7 @@ class DataBasePool:
         maxshared = kwargs.pop("maxshared", 6)
         # maximum number of connections generally allowed
         # (0 or None means an arbitrary number of connections)
-        maxconnections = kwargs.pop("maxconnections", 0)
+        maxconnections = kwargs.pop("maxconnections", 80)
         # determines behavior when exceeding the maximum
         # (if this is set to true, block and wait until the number of
         # connections decreases, otherwise an error will be reported)
@@ -87,7 +87,7 @@ class DataBasePool:
         # (0 or None means unlimited reuse)
         # When this maximum usage number of the connection is reached,
         # the connection is automatically reset (closed and reopened).
-        maxusage = kwargs.pop("maximum", 0)
+        maxusage = kwargs.pop("maximum", 10)
         # optional list of SQL commands that may serve to prepare
         # the session, e.g. ["set datestyle to ...", "set time zone ..."]
         setsession = kwargs.pop("setsession", None)
