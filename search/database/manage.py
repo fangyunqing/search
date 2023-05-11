@@ -71,7 +71,7 @@ class DataBasePool:
         mincached = kwargs.pop("mincached", 0)
         # maximum number of idle connections in the pool
         # (0 or None means unlimited pool size)
-        maxcached = kwargs.pop("mincached", 6)
+        maxcached = kwargs.pop("mincached", 80)
         # maximum number of shared connections
         # When this maximum number is reached, connections are
         # shared if they have been requested as shareable.

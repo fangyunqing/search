@@ -5,7 +5,7 @@ workers = multiprocessing.cpu_count() * 2 + 1
 # 工作方式
 worker_class = "gthread"
 # 指定每个进程开启的线程数
-threads = 100
+threads = 5
 # 绑定的ip与端口
 bind = '0.0.0.0:8080'
 # 最大客户端并发数量，默认情况下这个值为1000
