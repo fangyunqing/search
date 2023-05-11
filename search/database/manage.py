@@ -87,7 +87,7 @@ class DataBasePool:
         # (0 or None means unlimited reuse)
         # When this maximum usage number of the connection is reached,
         # the connection is automatically reset (closed and reopened).
-        maxusage = kwargs.pop("maximum", 10)
+        maxusage = kwargs.pop("maximum", 0)
         # optional list of SQL commands that may serve to prepare
         # the session, e.g. ["set datestyle to ...", "set time zone ..."]
         setsession = kwargs.pop("setsession", None)
