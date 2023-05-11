@@ -164,9 +164,9 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                     sql_dir = f"{file_info.get('dir')}{os.sep}*.parquet"
                     if len(glob.glob(sql_dir)) > 0:
                         if file_info_index == 0:
-                            data_df = pl.scan_parquet(sql_dir, low_memory=True)
+                            data_df = pl.scan_parquet(sql_dir)
                         else:
-                            new_df = pl.scan_parquet(sql_dir, low_memory=True)
+                            new_df = pl.scan_parquet(sql_dir)
                             data_df = data_df.join(other=new_df,
                                                    how=file_info.get('search_buffer').search_sql.how,
                                                    on=file_info.get('search_buffer').join_fields)
