@@ -15,9 +15,9 @@ backlog = 128
 # 进程名
 proc_name = 'gunicorn_process'
 # 设置超时时间120s，默认为30s。
-timeout = 360
+timeout = 1200
 # 超时重启
-graceful_timeout = 360
+graceful_timeout = 600
 
 
 # gunicorn启动前执行
