@@ -18,7 +18,7 @@ def redis_lock(key: str, ex: int = None, retry: int = None, retry_time: int = No
     if retry is None or retry < 0:
         retry = 0
     if retry_time is None or retry_time < 100:
-        retry_time = 100
+        retry_time = 50
     while True:
         res: bool = r.set(name=key,
                           value=1,

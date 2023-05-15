@@ -109,8 +109,7 @@ class SearchCondition(db.Model, SerializerMixin):
 
 class SearchField(db.Model, SerializerMixin):
     __tablename__ = "search_field"
-    serialize_only = ("id", "name", "display", "datatype", "rule", "result_fields", "order",
-                      "visible", "create_time")
+    serialize_only = ("id", "name", "display", "datatype", "rule", "result_fields", "order", "create_time")
     __table_args__ = (
         db.UniqueConstraint('search_id', 'name', name='uix_search_field_id_name'),
     )
@@ -126,8 +125,6 @@ class SearchField(db.Model, SerializerMixin):
     result_fields = Column(String(2048))
     # 数据类型 int str date float
     datatype = Column(String(255), nullable=False, default="str")
-    # 是否可见
-    visible = Column(String(1), default='1')
     # 排序号
     order = Column(Integer, nullable=False)
     # 搜索的ID
