@@ -46,3 +46,9 @@ class FieldNameException(SearchException):
         else:
             f = "unknown"
         super(FieldNameException, self).__init__(f"sql查询[{sql_name}]中查询字段[{f}]请以(i,n,u,s,t,d,b)开头")
+
+
+class SearchStrategyException(SearchException):
+
+    def __init__(self):
+        super(SearchStrategyException, self).__init__("服务器繁忙,请稍后再试")

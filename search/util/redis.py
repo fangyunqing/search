@@ -7,8 +7,13 @@ __author__ = 'fyq'
 
 import time
 from contextlib import contextmanager
-import redis
+from typing import List, Optional, Dict
 
+import redis
+import simplejson
+from munch import Munch
+
+from search import constant
 from search.extend import redis_pool
 
 
@@ -40,3 +45,17 @@ def redis_lock(key: str, ex: int = None, retry: int = None, retry_time: int = No
             r.delete(key)
     else:
         yield res
+
+
+def redis_search_config(*args) -> Optional[Munch]:
+    r = redis.Redis(connection_pool=redis_pool)
+    value: bytes = r.get(constant.RedisKey.SEARCH_CONFIG)
+    if value:
+        datas: List[Dict] = simplejson.loads(value.decode())
+        if len(args) == 0:
+            return Munch({data["name"]: data["value"]
+                          for data in datas})
+        else:
+            return Munch({data["name"]: data["value"]
+                          for data in datas
+                          if data["name"] in args})

@@ -6,3 +6,4 @@
 __author__ = 'fyq'
 
 from .fetch_strategy import FetchLengthStrategy
+from .search_strategy import search_strategy

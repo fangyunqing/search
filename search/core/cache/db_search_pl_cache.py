@@ -25,7 +25,7 @@ from search import dm
 from search.core.decorator import search_cost_time
 from search.core.progress import Progress
 from search.core.search_context import SearchContext
-from search.core.strategy import FetchLengthStrategy
+from search.core.strategy import FetchLengthStrategy, search_strategy
 from search.exceptions import FieldNameException
 from search.util.field import get_sql_field_type, get_pl_expr
 
@@ -55,6 +55,7 @@ class DBSearchPolarsCache(metaclass=ABCMeta):
 
 class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
 
+    @search_strategy.add_lock
     @search_cost_time
     def get_data(self, search_context: SearchContext, top: bool = False) -> Optional[pl.DataFrame]:
         # 所有的连接数

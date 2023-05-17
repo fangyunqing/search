@@ -24,16 +24,37 @@ class CSVExportCache(metaclass=ABCMeta):
     def get_data(self, search_context: SearchContext) -> Optional[pd.DataFrame]:
         pass
 
+    @abstractmethod
+    def valid_file(self, search_context: SearchContext) -> bool:
+        pass
+
 
 class DefaultCSVExportCache(CSVExportCache):
 
+    def valid_file(self, search_context: SearchContext) -> bool:
+        search_file_list: List[models.SearchFile] = (
+            models.SearchFile
+            .query
+            .filter_by(search_md5=search_context.search_key,
+                       use=constant.SEARCH,
+                       status=constant.FileStatus.USABLE)
+            .order_by(asc(models.SearchFile.order))
+            .all())
+        if len(search_file_list) == 0:
+            return False
+
+        res = [search_file and os.path.isfile(search_file.path) for search_file in search_file_list]
+        return all(res)
+
     def get_data(self, search_context: SearchContext) -> Optional[pd.DataFrame]:
-        search_file_list: List[models.SearchFile] = \
-            models.SearchFile.query.filter_by(search_md5=search_context.search_key,
-                                              use=constant.SEARCH,
-                                              status=constant.FileStatus.USABLE) \
-                                   .order_by(asc(models.SearchFile.order)) \
-                                   .all()
+        search_file_list: List[models.SearchFile] = (
+            models.SearchFile
+            .query
+            .filter_by(search_md5=search_context.search_key,
+                       use=constant.SEARCH,
+                       status=constant.FileStatus.USABLE)
+            .order_by(asc(models.SearchFile.order))
+            .all())
         res = [search_file and os.path.isfile(search_file.path) for search_file in search_file_list]
         if all(res):
             df_list: List[pd.DataFrame] = []

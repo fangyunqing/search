@@ -19,8 +19,9 @@ from search.core.progress import progress_manager
 from search.core.search_context import SearchContext, scm
 from search.core.search_local import search_local
 from search.core.search_md5 import create_search_md5, SearchMd5
+from search.core.strategy import search_strategy
 from search.entity import CommonResult, MessageCode
-from search.exceptions import FileNotFindSearchException
+from search.exceptions import FileNotFindSearchException, SearchStrategyException
 from search.extend import thread_pool, redis_pool
 
 
@@ -109,6 +110,12 @@ class Search(ISearch):
                                                                        page_number=page_number)
                     else:
                         return CommonResult.fail(code=MessageCode.LAST_PAGE.code, message=MessageCode.LAST_PAGE.desc)
+
+                # 判断是否可以查询
+                if data is None:
+                    if not search_strategy.can_search(search_context=search_context):
+                        raise SearchStrategyException()
+
                 r = redis.Redis(connection_pool=redis_pool)
                 thread_key = f"{constant.RedisKey.THREAD_LOCK_PREFIX}" \
                              f"_{constant.RedisKey.SEARCH}_{search_context.search_key}"
@@ -157,6 +164,10 @@ class Search(ISearch):
             return make_response(send_file(path_or_file=search_file.path,
                                            as_attachment=True))
         else:
+            if not self._csv_export_cache.valid_file(search_context=search_context):
+                if not search_strategy.can_search(search_context=search_context):
+                    response = make_response("服务器繁忙,请稍后再试", 601)
+                    return response
             r = redis.Redis(connection_pool=redis_pool)
             thread_key = f"{constant.RedisKey.THREAD_LOCK_PREFIX}" \
                          f"_{constant.RedisKey.EXPORT}_{search_context.search_key}"
