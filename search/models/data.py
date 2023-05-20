@@ -313,7 +313,9 @@ class SearchParameter(db.Model, SerializerMixin):
     name = Column(String(255), nullable=False)
     # 值
     value = Column(String(255))
-    # 可用
-    usable = Column(String(1), default="1")
     # 备注
     memo = Column(String(255))
+    # 展示名称
+    display = Column(String(255), nullable=False)
+    # 版本信息
+    version = Column(Integer, default=0)

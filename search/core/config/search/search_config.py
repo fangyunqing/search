@@ -67,8 +67,47 @@ class ISearchConfig(metaclass=ABCMeta):
     def disable(self, search_id, version):
         pass
 
+    @abstractmethod
+    def search_parameter(self, data: dict) -> Dict:
+        pass
+
+    @abstractmethod
+    def modify_search_parameter(self, data: str):
+        pass
+
 
 class SearchConfig(ISearchConfig):
+
+    def search_parameter(self, data: dict) -> Dict:
+        m = munch.Munch(data)
+        page_number = int(m.pop("pageNumber", 1))
+        page_size = int(m.pop("pageSize", 50))
+        q = []
+        s_q = models.SearchParameter.query
+        for k, v in m.items():
+            if v:
+                q.append(getattr(models.SearchParameter, k).like(f"%{v}%"))
+        if len(q) > 0:
+            s_q = s_q.filter(*q)
+        p: QueryPagination = s_q.paginate(page=page_number, per_page=page_size, error_out=False)
+        return CommonResult.success(data={"list": [s.to_dict() for s in p], "total": p.total})
+
+    @transactional
+    def modify_search_parameter(self, data: str):
+        m = munch.Munch(simplejson.loads(data))
+        sp: models.SearchParameter = models.SearchParameter.query.filter_by(id=m.id, version=m.version).first()
+        if not sp:
+            raise SearchException(f"参数[{sp.display}]未找到到或者数据版本不正确")
+
+        sp.version = m.version + 1
+        sp.value = m.value
+
+        search_parameter_list: List[models.SearchParameter] = models.SearchParameter.query.all()
+        r = redis.Redis(connection_pool=redis_pool)
+        r.set(name=constant.RedisKey.SEARCH_CONFIG,
+              value=simplejson.dumps([_.to_dict() for _ in search_parameter_list]))
+
+        return CommonResult.success()
 
     @transactional
     def usable(self, search_id, version):
@@ -154,7 +193,7 @@ class SearchConfig(ISearchConfig):
             if v:
                 q.append(getattr(models.Search, k).like(f"%{v}%"))
         if len(q) > 0:
-            s_q.filter(*q)
+            s_q = s_q.filter(*q)
         p: QueryPagination = s_q.paginate(page=page_number, per_page=page_size, error_out=False)
         return CommonResult.success(data={"list": [s.to_dict() for s in p], "total": p.total})
 

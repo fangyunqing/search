@@ -166,7 +166,8 @@ class Search(ISearch):
         else:
             if not self._csv_export_cache.valid_file(search_context=search_context):
                 if not search_strategy.can_search(search_context=search_context):
-                    response = make_response("服务器繁忙,请稍后再试", 601)
+                    response = make_response()
+                    response.status_code = 601
                     return response
             r = redis.Redis(connection_pool=redis_pool)
             thread_key = f"{constant.RedisKey.THREAD_LOCK_PREFIX}" \

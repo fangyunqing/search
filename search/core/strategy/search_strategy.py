@@ -63,6 +63,12 @@ class DefaultStrategySearch(ISearchStrategy):
                     if config is None:
                         config = Munch()
 
+                    for k, v in config.items():
+                        try:
+                            config[k] = int(v)
+                        except ValueError:
+                            config[k] = sys.maxsize
+
                     if top:
                         data.ss += 1
                         ss = config.setdefault("ss", sys.maxsize)

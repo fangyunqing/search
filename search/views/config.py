@@ -86,3 +86,13 @@ def search_usable(search_id, version):
 @config_bp.route(rule="/search/disable/<int:version>/<int:search_id>", methods=["GET"])
 def search_disable(search_id, version):
     return search_config.disable(search_id, version)
+
+
+@config_bp.route(rule="/search/parameter", methods=["GET"])
+def search_parameter():
+    return search_config.search_parameter(request.args)
+
+
+@config_bp.route(rule="/search/parameter/modify", methods=["POST"])
+def modify_search_parameter():
+    return search_config.modify_search_parameter(request.data.decode())
