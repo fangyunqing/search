@@ -20,7 +20,6 @@ from search.entity.common_result import BaseDataClass
 
 @dataclass
 class SearchMd5(BaseDataClass):
-
     search: Dict = None
 
     search_name: str = None
@@ -42,7 +41,6 @@ class SearchMd5(BaseDataClass):
     search_sort_condition_value_list: List[str] = field(default_factory=lambda: [])
 
 
-@cache
 def create_search_md5(search: Dict) -> SearchMd5:
     search_name = search.get(constant.SearchPoint.SEARCH_NAME, "")
     search_fields = search.get(constant.SearchPoint.SEARCH_FIELD, [])
