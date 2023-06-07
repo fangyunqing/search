@@ -8,6 +8,7 @@ __author__ = 'fyq'
 import copy
 import hashlib
 from dataclasses import dataclass, field
+from functools import cache
 from typing import List, Dict
 
 from search import constant
@@ -41,6 +42,7 @@ class SearchMd5(BaseDataClass):
     search_sort_condition_value_list: List[str] = field(default_factory=lambda: [])
 
 
+@cache
 def create_search_md5(search: Dict) -> SearchMd5:
     search_name = search.get(constant.SearchPoint.SEARCH_NAME, "")
     search_fields = search.get(constant.SearchPoint.SEARCH_FIELD, [])
