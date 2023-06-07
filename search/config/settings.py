@@ -7,7 +7,7 @@ __author__ = 'fyq'
 
 import os
 
-SQLALCHEMY_DATABASE_URI = "mysql+pymysql://root:123456@10.104.3.121:3306/search"
+SQLALCHEMY_DATABASE_URI = "mysql+pymysql://root:123456@10.109.88.52:3306/search"
 
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
