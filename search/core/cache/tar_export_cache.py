@@ -50,7 +50,11 @@ class AbstractTarExportCache(TarExportCache):
 
         def remove(val):
             if isinstance(val, str):
-                return ILLEGAL_CHARACTERS_RE.sub(" ", val).replace("\n", " ").replace("`", " ")
+                return (ILLEGAL_CHARACTERS_RE.sub(" ", val)
+                        .replace("\n", " ")
+                        .replace("\r", " ")
+                        .replace("`", " ")
+                        )
             return val
 
         new_data_df = pd.DataFrame()
@@ -59,7 +63,7 @@ class AbstractTarExportCache(TarExportCache):
                 for search_field in search_context.search_field_list:
                     if search_field.name == column:
                         if pd.api.types.is_string_dtype(data_df[column]) \
-                                or 'string[pyarrow]' in data_df['sCustomerOrderNo'].dtypes.name:
+                                or 'string[pyarrow]' in data_df[column].dtypes.name:
                             new_data_df[search_field.display] = \
                                 data_df[column].apply(remove)
                         else:
