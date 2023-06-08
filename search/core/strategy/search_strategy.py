@@ -98,10 +98,10 @@ class DefaultStrategySearch(ISearchStrategy):
                     if top:
                         if data.ss > 0:
                             data.ss -= 1
-                        else:
-                            weight = search_context.score[1]
-                            if data[weight] > 0:
-                                data[weight] -= 1
+                    else:
+                        weight = search_context.score[1]
+                        if data[weight] > 0:
+                            data[weight] -= 1
 
                     r.set(constant.RedisKey.SEARCH_STRATEGY, simplejson.dumps(data))
 
