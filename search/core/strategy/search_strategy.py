@@ -125,6 +125,11 @@ class DefaultStrategySearch(ISearchStrategy):
             config = redis_search_config("l", "s", "m", "ss")
             if config is None:
                 config = Munch()
+            for k, v in config.items():
+                try:
+                    config[k] = int(v)
+                except ValueError:
+                    config[k] = sys.maxsize
 
             weight = search_context.score[1]
             max_count = config.setdefault(weight, sys.maxsize)
