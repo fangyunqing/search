@@ -87,6 +87,10 @@ class ProgressStep(metaclass=ABCMeta):
                 "value": _value
             })
 
+        if len(_progress):
+            if all([p["value"] == 0 for p in _progress]):
+                _progress[0]["value"] = 1
+
         return {
             "error": self.error,
             "progress": _progress

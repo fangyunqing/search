@@ -40,9 +40,9 @@ class AbstractTarExportCache(TarExportCache):
 
     def get_data(self, search_context: SearchContext) -> Optional[models.SearchFile]:
         search_file: models.SearchFile = \
-            models.SearchFile.query.filter_by(search_md5=search_context.search_key, use=constant.EXPORT)\
-            .order_by(desc(models.SearchFile.create_time))\
-            .first()
+            models.SearchFile.query.filter_by(search_md5=search_context.search_key, use=constant.EXPORT) \
+                .order_by(desc(models.SearchFile.create_time)) \
+                .first()
         return search_file
 
     @search_cost_time
@@ -58,7 +58,8 @@ class AbstractTarExportCache(TarExportCache):
             if column in data_df.columns:
                 for search_field in search_context.search_field_list:
                     if search_field.name == column:
-                        if pd.api.types.is_string_dtype(data_df[column]):
+                        if pd.api.types.is_string_dtype(data_df[column]) \
+                                or 'string[pyarrow]' in data_df['sCustomerOrderNo'].dtypes.name:
                             new_data_df[search_field.display] = \
                                 data_df[column].apply(remove)
                         else:
@@ -79,7 +80,7 @@ class AbstractTarExportCache(TarExportCache):
                               tar_dir=tar_dir,
                               file_path_list=file_path_list)
             tar_path = f"{tar_dir}{os.path.sep}{search_context.search.name}.tar.gz"
-            self.exec_tar(search_context = search_context,
+            self.exec_tar(search_context=search_context,
                           tar_path=tar_path,
                           file_path_list=file_path_list)
 
