@@ -50,7 +50,7 @@ class AbstractTarExportCache(TarExportCache):
 
         def remove(val):
             if isinstance(val, str):
-                return ILLEGAL_CHARACTERS_RE.sub(" ", val)
+                return ILLEGAL_CHARACTERS_RE.sub(" ", val).replace("\n", " ").replace("`", " ")
             return val
 
         new_data_df = pd.DataFrame()
