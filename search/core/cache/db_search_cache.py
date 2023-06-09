@@ -125,7 +125,7 @@ class DefaultDBCache(AbstractDBSearchCache):
             if field in search_field_dict:
                 search_field = search_field_dict[field]
                 try:
-                    if search_field.rule.startswith(("def", "import", "from")):
+                    if search_field.rule and search_field.rule.startswith(("def", "import", "from")):
                         md = RuntimeModule.from_string('a', search_field.rule)
                         find = False
                         for v in md.__dict__.values():
