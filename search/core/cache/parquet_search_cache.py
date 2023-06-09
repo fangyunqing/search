@@ -55,7 +55,7 @@ class AbstractParquetSearchCache(ParquetSearchCache):
                                    .order_by(desc(models.SearchFile.create_time)) \
                                    .first()
         if search_file and os.path.isfile(search_file.path):
-            relative_page_number = page_number - order * all_pages
+            relative_page_number = page_number - order * all_pages - 1
             begin_page = None
             begin_row = None
             for _ in range(0, all_pages, search_context.search.pages):
