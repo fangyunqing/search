@@ -16,7 +16,6 @@ from typing import Optional, List, Any
 
 import munch
 import polars as pl
-import pymssql
 import pyodbc
 from loguru import logger
 from pyext import RuntimeModule
@@ -314,7 +313,8 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                         logger.info(f"fetchmany {len(datas)}")
                         pl.DataFrame([list(d) for d in datas],
                                      schema=search_buffer.select_fields,
-                                     infer_schema_length=None).with_columns(*expr_list) \
+                                     infer_schema_length=None,
+                                     orient="row").with_columns(*expr_list) \
                             .write_parquet(f"{sql_tmp_dir}{os.sep}{index}.parquet", use_pyarrow=True)
                         index += 1
                 except pyodbc.ProgrammingError as e:
@@ -377,7 +377,8 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
             if datas:
                 return pl.DataFrame([list(d) for d in datas],
                                     schema=search_buffer.select_fields,
-                                    infer_schema_length=None).lazy().with_columns(*expr_list)
+                                    infer_schema_length=None,
+                                    orient="row").lazy().with_columns(*expr_list)
         except pyodbc.ProgrammingError as e:
             if e.args[0] != "42S02":
                 raise e
