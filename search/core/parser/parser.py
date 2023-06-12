@@ -79,6 +79,10 @@ class SearchParser(ISearchParser):
             models.SearchCondition.query.filter_by(search_id=search_id).order_by(models.SearchCondition.order).all()
         search_condition_dict: Dict[str, models.SearchCondition] = {search_condition.name: search_condition
                                                                     for search_condition in search_condition_list}
+        # 查询排序
+        search_sort_list: List[models.SearchSort] = (
+            models.SearchSort.query.filter_by(search_id=search_id).order_by(models.SearchSort.order).all()
+        )
 
         condition_type_time_list = [search_condition for search_condition in search_condition_list
                                     if search_condition.condition_type == constant.ConditionType.TIME]
@@ -220,6 +224,12 @@ class SearchParser(ISearchParser):
             elif len(result_fields_list) > 1:
                 errors.append(f"字段[{search_field.name}]中依赖字段必须为一个")
             self._find(search_sql_list, search_field.result_fields, search_field, 0)
+
+        # 查询排序
+        search_field_names = [search_field.name for search_field in search_field_list]
+        for search_sort in search_sort_list:
+            if search_sort.field_name not in search_field_names:
+                errors.append(f"排序字段[{search_sort.field_name}]在查询字段中不存在")
 
         if len(errors) > 0:
             raise SearchParseException(",".join(errors))

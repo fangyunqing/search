@@ -272,8 +272,15 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
 
         # 查询排序
         if search_context.search_sort_list:
-            df = df.sort(by=["col_" + search_sort.field_name for search_sort in search_context.search_sort_list],
-                         descending=[search_sort.rule == "desc" for search_sort in search_context.search_sort_list])
+            by_list = []
+            desc_list = []
+            for search_sort in search_context.search_sort_list:
+                if search_sort.field_name in search_context.search_md5.search_original_field_list:
+                    by_list.append("col_" + search_sort.field_name)
+                    by_list.append(search_sort.rule == "desc")
+            if by_list and desc_list:
+                df = df.sort(by=by_list,
+                             descending=desc_list)
 
         new_df = df.collect()
         new_df.columns = search_context.search_md5.search_original_field_list

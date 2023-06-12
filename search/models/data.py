@@ -323,6 +323,9 @@ class SearchParameter(db.Model, SerializerMixin):
 
 class SearchSort(db.Model, SerializerMixin):
     __tablename__ = "search_sort"
+    __table_args__ = (
+        db.UniqueConstraint('search_id', 'field_name', name='uix_search_sort_id_name'),
+    )
     # 主键
     id = Column(Integer, primary_key=True, autoincrement=True)
     # 字段名
