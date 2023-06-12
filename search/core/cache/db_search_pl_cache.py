@@ -266,11 +266,18 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
             else:
                 expr_list.append(pl.lit(None).alias(new_field))
 
-        df = df.with_columns(*expr_list) \
-            .select(["col_" + field_name for field_name in search_context.search_md5.search_original_field_list]) \
-            .collect()
-        df.columns = search_context.search_md5.search_original_field_list
-        return df
+        df = (df.with_columns(*expr_list)
+              .select(["col_" + field_name for field_name in search_context.search_md5.search_original_field_list])
+              )
+
+        # 查询排序
+        if search_context.search_sort_list:
+            df = df.sort(by=["col_" + search_sort.field_name for search_sort in search_context.search_sort_list],
+                         descending=[search_sort.rule == "desc" for search_sort in search_context.search_sort_list])
+
+        new_df = df.collect()
+        new_df.columns = search_context.search_md5.search_original_field_list
+        return new_df
 
     execs = ["exec", "exec_new_df"]
 

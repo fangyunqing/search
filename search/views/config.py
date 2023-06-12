@@ -58,6 +58,11 @@ def get_search_field(search_id):
     return search_config.field(search_id)
 
 
+@config_bp.route(rule="/search/sort/<int:search_id>", methods=["GET"])
+def get_search_sort(search_id):
+    return search_config.sort(search_id)
+
+
 @config_bp.route(rule="/search/add", methods=["POST"])
 def search_add():
     return search_config.add(request.data.decode())

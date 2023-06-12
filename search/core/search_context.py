@@ -74,6 +74,8 @@ class SearchContext(BaseDataClass):
     search_field_list: List[Munch] = None
     # 查询条件
     search_condition_dict: Dict[str, Munch] = None
+    # 查询排序
+    search_sort_list: List[Munch] = None
     # 查询的数据
     search_md5: Munch = None
     # key
@@ -134,6 +136,7 @@ class AbstractSearchContextManager(ISearchContextManager):
                     sc.search_md5 = m.search_md5
                     sc.search_buffer_list = m.search_buffer_list
                     sc.search_field_list = m.search_field_list
+                    sc.search_sort_list = m.search_sort_list
                     sc.search_condition_dict = m.search_condition_dict
                     sc.cache_dir = m.cache_dir
                     sc.score = m.score
@@ -201,6 +204,10 @@ class SearchContextManager(AbstractSearchContextManager):
         # 查询条件
         search_condition_list: List[models.SearchCondition] = models.SearchCondition.query.filter_by(
             search_id=search.id).order_by(models.SearchCondition.order).all()
+        # 查询排序
+        search_sort_list: List[models.SearchSort] = (
+            models.SearchSort.query.filter_by(search_id=search.id).order_by(models.SearchSort.order).all()
+                                    )
 
         search_buffer_dict: Dict[int, SearchBuffer] = {}
         for search_field in search_field_list:
@@ -247,6 +254,7 @@ class SearchContextManager(AbstractSearchContextManager):
         sc.search_key = f"{search.name}_v{search.version}_" + search_md5.search_md5
         sc.search_buffer_list = [Munch(search_buffer.to_dict()) for search_buffer in search_buffer_list]
         sc.search_field_list = [Munch(search_field.to_dict()) for search_field in search_field_list]
+        sc.search_sort_list = [Munch(search_sort.to_dict()) for search_sort in search_sort_list]
         sc.search_condition_dict = {search_condition.name: Munch(search_condition.to_dict())
                                     for search_condition in search_condition_list}
         sc.cache_dir = current_app.config.setdefault("FILE_DIR", constant.DEFAULT_FILE_DIR)

@@ -48,6 +48,10 @@ class ISearchConfig(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def sort(self, search_id) -> Dict:
+        pass
+
+    @abstractmethod
     def add(self, data: str) -> Dict:
         pass
 
@@ -77,6 +81,11 @@ class ISearchConfig(metaclass=ABCMeta):
 
 
 class SearchConfig(ISearchConfig):
+
+    def sort(self, search_id) -> Dict:
+        search_sort_list: List[models.SearchSort] = \
+            models.SearchSort.query.filter_by(search_id=search_id).order_by(models.SearchSort.order).all()
+        return CommonResult.success(data=search_sort_list)
 
     def search_parameter(self, data: dict) -> Dict:
         m = munch.Munch(data)
@@ -135,13 +144,17 @@ class SearchConfig(ISearchConfig):
             models.SearchCondition.query.filter_by(search_id=search_id).order_by(models.SearchCondition.order).all()
         search_field_list: List[munch.Munch] = [munch.Munch(search_field.to_dict())
                                                 for search_field in search_field_list]
+        search_sort_list: List[models.SearchSort] = (
+            models.SearchSort.query.filter_by(search_id=search_id).order_by(models.SearchSort.order).all()
+        )
         for search_field in search_field_list:
             search_field["result_fields"] = list(search_field.result_fields.split(","))
         res = {
             "search": search.to_dict(),
             "searchCondition": [search_condition.to_dict() for search_condition in search_condition_list],
             "searchSql": [search_sql.to_dict() for search_sql in search_sql_list],
-            "searchField": search_field_list
+            "searchField": search_field_list,
+            "searchSort": [search_sort.to_dict() for search_sort in search_sort_list]
         }
 
         return CommonResult.success(data=res)
@@ -234,6 +247,10 @@ class SearchConfig(ISearchConfig):
         repeat_value = repeat(search_field_list, "name")
         if len(repeat_value) > 0:
             raise SearchException(f"查询[{search.search_name}]字段名称存在重复[{repeat_value}]")
+        search_sort_list: List[models.SearchSort] = data2obj(m.searchSort, models.SearchSort)
+        repeat_value = repeat(search_field_list, "field_name")
+        if len(repeat_value) > 0:
+            raise SearchException(f"查询[{search.search_name}]排序字段存在重复[{repeat_value}]")
         search.status = constant.SearchStatus.PARSING
         db.session.add(search)
         db.session.flush()
@@ -243,9 +260,12 @@ class SearchConfig(ISearchConfig):
             search_sql.search_id = search.id
         for search_field in search_field_list:
             search_field.search_id = search.id
+        for search_sort in search_sort_list:
+            search_sort.search_id = search
         db.session.add_all(search_condition_list)
         db.session.add_all(search_sql_list)
         db.session.add_all(search_field_list)
+        db.session.add_all(search_sort_list)
 
         return search.id, search.name
 
@@ -267,6 +287,7 @@ class SearchConfig(ISearchConfig):
         models.SearchCondition.query.filter_by(search_id=search_id).delete()
         models.SearchSQL.query.filter_by(search_id=search_id).delete()
         models.SearchField.query.filter_by(search_id=search_id).delete()
+        models.SearchSort.query.filter_by(search_id=search_id).delete()
         db.session.flush()
 
         search_condition_list: List[models.SearchCondition] = data2obj(m.searchCondition, models.SearchCondition)
@@ -283,6 +304,10 @@ class SearchConfig(ISearchConfig):
         repeat_value = repeat(search_field_list, "name")
         if len(repeat_value) > 0:
             raise SearchException(f"查询[{search_name}]字段名称存在重复[{repeat_value}]")
+        search_sort_list: List[models.SearchSort] = data2obj(m.searchSort, models.SearchSort)
+        repeat_value = repeat(search_field_list, "field_name")
+        if len(repeat_value) > 0:
+            raise SearchException(f"查询[{search_name}]排序字段存在重复[{repeat_value}]")
 
         for search_condition in search_condition_list:
             search_condition.search_id = search_id
@@ -293,10 +318,14 @@ class SearchConfig(ISearchConfig):
         for search_field in search_field_list:
             search_field.search_id = search_id
             search_field.id = None
+        for search_sort in search_sort_list:
+            search_sort.search_id = search_id
+            search_sort.id = None
 
         db.session.add_all(search_condition_list)
         db.session.add_all(search_sql_list)
         db.session.add_all(search_field_list)
+        db.session.add_all(search_sort_list)
 
         scm.delete_search_context(search_name)
 

@@ -52,7 +52,7 @@ def condition():
                                 key = None
                                 value = None
                                 if len(data) > 0:
-                                    key = data[0]
+                                    key = str(data[0])
                                 if len(data) > 1:
                                     value = str(data[1])
                                 if key and value:

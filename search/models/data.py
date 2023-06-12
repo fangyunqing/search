@@ -120,7 +120,7 @@ class SearchField(db.Model, SerializerMixin):
     # 展示名称
     display = Column(String(255), nullable=False)
     # 规则
-    rule = Column(String(1024), nullable=False)
+    rule = Column(String(1024))
     # 结果字段
     result_fields = Column(String(2048))
     # 数据类型 int str date float
@@ -319,3 +319,19 @@ class SearchParameter(db.Model, SerializerMixin):
     display = Column(String(255), nullable=False)
     # 版本信息
     version = Column(Integer, default=0)
+
+
+class SearchSort(db.Model, SerializerMixin):
+    __tablename__ = "search_sort"
+    # 主键
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    # 字段名
+    field_name = Column(String(255), nullable=False)
+    # 规则
+    rule = Column(String(10), default="desc")
+    # 序号
+    order = Column(Integer)
+    # 搜索的ID
+    search_id = Column(Integer, ForeignKey("search.id"))
+    # 生成时间
+    create_time = Column(DateTime(timezone=True), default=func.now())
