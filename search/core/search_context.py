@@ -109,6 +109,8 @@ class AbstractSearchContextManager(ISearchContextManager):
             raise SearchException(f"{search_md5.search_name}不存在")
         if search.usable == "0" or search.status != constant.SearchStatus.ACCESS:
             raise SearchException(f"{search_md5.search_name}不可用")
+        if search.delete == "1":
+            raise SearchException(f"{search_md5.search_name}已删除")
 
         # 查询条件是否符合
         search_condition_list: List[models.SearchCondition] = models.SearchCondition.query.filter_by(

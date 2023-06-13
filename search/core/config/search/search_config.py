@@ -5,6 +5,7 @@
 
 __author__ = 'fyq'
 
+import uuid
 from abc import ABCMeta, abstractmethod
 from typing import List, Dict, Tuple
 
@@ -14,6 +15,7 @@ import simplejson
 from flask import Flask, current_app
 from flask_sqlalchemy.pagination import QueryPagination
 from loguru import logger
+from sqlalchemy.orm import make_transient
 
 from search import models, CommonResult, db, constant, MessageCode
 from search.core.decorator import transactional
@@ -79,8 +81,29 @@ class ISearchConfig(metaclass=ABCMeta):
     def modify_search_parameter(self, data: str):
         pass
 
+    @abstractmethod
+    def copy(self, search_id):
+        pass
+
+    @abstractmethod
+    def delete(self, search_id, version):
+        pass
+
 
 class SearchConfig(ISearchConfig):
+
+    @transactional
+    def delete(self, search_id, version):
+        search: models.Search = models.Search.query.filter_by(id=search_id, version=version).first()
+        if not search:
+            raise SearchException(f"查询[{search.name}]未找到到或者数据版本不正确")
+        search.delete = "1"
+        return CommonResult.success()
+
+    def copy(self, search_id):
+        new_search_id = self._copy(search_id)
+        thread_pool.submit(self._parse_search, new_search_id, current_app._get_current_object())
+        return CommonResult.success()
 
     def sort(self, search_id) -> Dict:
         search_sort_list: List[models.SearchSort] = \
@@ -207,6 +230,7 @@ class SearchConfig(ISearchConfig):
                 q.append(getattr(models.Search, k).like(f"%{v}%"))
         if len(q) > 0:
             s_q = s_q.filter(*q)
+        s_q = s_q.filter_by(delete="0")
         p: QueryPagination = s_q.paginate(page=page_number, per_page=page_size, error_out=False)
         return CommonResult.success(data={"list": [s.to_dict() for s in p], "total": p.total})
 
@@ -330,6 +354,66 @@ class SearchConfig(ISearchConfig):
         scm.delete_search_context(search_name)
 
         return search_id, search_name
+
+    @classmethod
+    @transactional
+    def _copy(cls, search_id):
+        search: models.Search = models.Search.query.filter_by(id=search_id).first()
+        search_sql_list: List[models.SearchSQL] = \
+            models.SearchSQL.query.filter_by(search_id=search_id).order_by(models.SearchSQL.order).all()
+        search_field_list: List[models.SearchField] = \
+            models.SearchField.query.filter_by(search_id=search_id).order_by(models.SearchField.order).all()
+        search_condition_list: List[models.SearchCondition] = \
+            models.SearchCondition.query.filter_by(search_id=search_id).order_by(models.SearchCondition.order).all()
+        search_sort_list: List[models.SearchSort] = (
+            models.SearchSort.query.filter_by(search_id=search_id).order_by(models.SearchSort.order).all()
+        )
+
+        db.session.expunge(search)
+        make_transient(search)
+        search.id = None
+        search.status = constant.SearchStatus.PARSING
+        search.create_time = None
+        search.version = 1
+        search.name = search.name + str(uuid.uuid4())
+        search.display = search.display + str(uuid.uuid4())
+        db.session.add(search)
+        db.session.flush()
+
+        for search_sql in search_sql_list:
+            db.session.expunge(search_sql)
+            make_transient(search_sql)
+            search_sql.id = None
+            search_sql.create_time = None
+            search_sql.search_id = search.id
+
+        for search_field in search_field_list:
+            db.session.expunge(search_field)
+            make_transient(search_field)
+            search_field.id = None
+            search_field.create_time = None
+            search_field.search_id = search.id
+
+        for search_condition in search_condition_list:
+            db.session.expunge(search_condition)
+            make_transient(search_condition)
+            search_condition.id = None
+            search_condition.create_time = None
+            search_condition.search_id = search.id
+
+        for search_sort in search_sort_list:
+            db.session.expunge(search_sort)
+            make_transient(search_sort)
+            search_sort.id = None
+            search_sort.create_time = None
+            search_sort.search_id = search.id
+
+        db.session.add_all(search_sql_list)
+        db.session.add_all(search_sort_list)
+        db.session.add_all(search_field_list)
+        db.session.add_all(search_condition_list)
+
+        return search.id
 
 
 search_config = SearchConfig()

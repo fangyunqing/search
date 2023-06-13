@@ -72,6 +72,8 @@ class Search(db.Model, SerializerMixin):
     error = Column(String(1024))
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
+    # 逻辑删除
+    delete = Column(String(1), default='0')
     # 版本
     version = Column(Integer, default=1)
 

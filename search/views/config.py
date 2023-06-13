@@ -101,3 +101,13 @@ def search_parameter():
 @config_bp.route(rule="/search/parameter/modify", methods=["POST"])
 def modify_search_parameter():
     return search_config.modify_search_parameter(request.data.decode())
+
+
+@config_bp.route(rule="/search/copy/<int:search_id>", methods=["GET"])
+def copy(search_id):
+    return search_config.copy(search_id)
+
+
+@config_bp.route(rule="/search/delete/<int:version>/<int:search_id>", methods=["GET"])
+def delete(search_id, version):
+    return search_config.delete(search_id, version)
