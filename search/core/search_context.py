@@ -269,8 +269,8 @@ class SearchContextManager(AbstractSearchContextManager):
             if v.condition_type == constant.ConditionType.TIME:
                 time_values.append(search_context.search_md5.search_conditions[k])
 
-        dt1 = datetime.strptime(time_values[0], "%Y-%m-%d")
-        dt2 = datetime.strptime(time_values[1], "%Y-%m-%d")
+        dt1 = datetime.strptime(time_values[0][0:10], "%Y-%m-%d")
+        dt2 = datetime.strptime(time_values[1][0:10], "%Y-%m-%d")
 
         days = max(rrule.rrule(freq=rrule.DAILY,
                                dtstart=dt1,

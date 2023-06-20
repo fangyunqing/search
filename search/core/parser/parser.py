@@ -88,6 +88,9 @@ class SearchParser(ISearchParser):
                                     if search_condition.condition_type == constant.ConditionType.TIME]
         if len(condition_type_time_list) != 2:
             errors.append(f"查询条件中查询类型[时间]必须等于2(={len(condition_type_time_list)})")
+        for condition_type_time in condition_type_time_list:
+            if condition_type_time.datatype not in ["date", "datetime"]:
+                errors.append(f"查询条件中查询类型[时间]-条件{condition_type_time.name}数据类型必须是['date', 'datetime']")
 
         # sql语句解析
         parse = SearchSqlParser()
