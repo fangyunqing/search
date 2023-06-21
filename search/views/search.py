@@ -80,9 +80,29 @@ def condition():
 def field():
     search_name = request.args.get("searchName")
     search_result = models.Search.query.filter_by(name=search_name).first()
-    search_field_list = \
+    search_field_list: List[models.SearchField] = (
         models.SearchField.query.filter_by(search_id=search_result.id).order_by(
             models.SearchField.order).all()
+    )
+    conn = dm.get_main_connection()
+    work_code = request.headers.get("no", None)
+    if conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT 1 "
+                           "FROM dbo.smUserRoleRelation A WITH(NOLOCK) "
+                           "JOIN dbo.smRole B WITH(NOLOCK) ON B.uGUID = A.usmRoleGUID "
+                           f"WHERE A.sUserId='{work_code}' AND B.sRoleID='ISMONEY'")
+            datas = cursor.fetchall()
+            if len(datas) == 0:
+                search_field_list = [search_field
+                                     for search_field in search_field_list
+                                     if not search_field.name.lower().endswith(("price", "money"))]
+        except Exception as e:
+            logger.exception(e)
+        finally:
+            cursor.close()
+            conn.close()
     return CommonResult.success(data=[s.to_dict() for s in search_field_list])
 
 

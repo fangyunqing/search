@@ -5,6 +5,7 @@
 
 __author__ = 'fyq'
 
+import copy
 import glob
 import os
 import shutil
@@ -58,10 +59,7 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
     @search_cost_time
     def get_data(self, search_context: SearchContext, top: bool = False) -> Optional[pl.DataFrame]:
         # 所有的连接数
-        if top:
-            conn_list = [dm.get_main_connection()]
-        else:
-            conn_list = dm.get_connections()
+        conn_list = dm.get_connections()
         # 执行步骤
         self.count(search_context=search_context)
         # 总数据
@@ -79,12 +77,11 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                 sql_list: List[str] = []
                 tmp_sql_list: List[TempTableStatement] = []
                 select_expression = search_buffer.search_sql.select_expression
-                if select_expression:
-                    if search_cache_index == 0 and top:
-                        select_expression = f"{select_expression} TOP {search_context.search.top}"
-                else:
-                    if search_cache_index == 0 and top:
-                        select_expression = f"TOP {search_context.search.top}"
+                if search_cache_index == 0 and top:
+                    if select_expression:
+                        select_expression = select_expression + " TOP {}"
+                    else:
+                        select_expression = "TOP {}"
 
                 where_expression = search_buffer.where_expression
                 join_expression = [s.format(*[get_ident() for _ in range(0, s.count("#{}"))])
@@ -143,7 +140,8 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                                                 search_buffer=search_buffer,
                                                 sql=sql,
                                                 conn_list=conn_list,
-                                                tmp_sql_list=tmp_sql_list)
+                                                tmp_sql_list=tmp_sql_list,
+                                                first=search_cache_index == 0)
                     if new_df is not None:
                         if data_df is None:
                             data_df = new_df
@@ -210,7 +208,8 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                       search_buffer: munch.Munch,
                       conn_list,
                       sql: str,
-                      tmp_sql_list: List[TempTableStatement]) -> Optional[pl.LazyFrame]:
+                      tmp_sql_list: List[TempTableStatement],
+                      first: bool = False) -> Optional[pl.LazyFrame]:
         pass
 
     @abstractmethod
@@ -362,7 +361,8 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                       search_buffer: munch.Munch,
                       conn_list,
                       sql: str,
-                      tmp_sql_list: List[TempTableStatement]) -> Optional[pl.LazyFrame]:
+                      tmp_sql_list: List[TempTableStatement],
+                      first: bool = False) -> Optional[pl.LazyFrame]:
         expr_list = []
         for select_field in search_buffer.select_fields:
             expr = get_pl_expr(select_field)
@@ -371,33 +371,56 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
             else:
                 raise FieldNameException(search_buffer.name, select_field)
 
-        conn = conn_list[0]
-        cur = conn.cursor()
-        try:
-            for tts in tmp_sql_list:
-                # 创建表
-                logger.info(f"{tts.create_stat}")
-                cur.execute(tts.create_stat)
-                # 创建索引
-                logger.info(f"{tts.index_stat}")
-                cur.execute(tts.index_stat)
-                # 插入语句
-                logger.info(f"{tts.insert_stat} {tuple(search_buffer.args)}")
-                cur.execute(tts.insert_stat, tuple(search_buffer.args))
+        tops = search_context.search.top
+        sql_top = copy.copy(sql)
+        data_list = []
+        for conn in conn_list:
+            cur = conn.cursor()
+            try:
+                cur._cursor.fast_executemany = True
+                try:
+                    if first:
+                        if tops > 0:
+                            sql = sql_top.format(tops)
+                            logger.info(f"{sql} {search_buffer.args}")
+                            cur.execute(sql, tuple(search_buffer.args))
+                            data = cur.fetchall()
+                            if data:
+                                data_list.extend(data)
+                            tops -= len(data)
+                    else:
+                        logger.info(f"{sql} {search_buffer.args}")
+                        cur.execute(sql, tuple(search_buffer.args))
+                        data = cur.fetchall()
+                        if data:
+                            data_list.extend(data)
+                except pyodbc.ProgrammingError as e:
+                    if e.args[0] != "42S02":
+                        raise e
 
-            logger.info(f"{sql} {tuple(search_buffer.args)}")
-            cur.execute(sql, tuple(search_buffer.args))
-            datas = cur.fetchall()
-            if datas:
-                return pl.DataFrame([list(d) for d in datas],
-                                    schema=search_buffer.select_fields,
-                                    infer_schema_length=None,
-                                    orient="row").lazy().with_columns(*expr_list)
-        except pyodbc.ProgrammingError as e:
-            if e.args[0] != "42S02":
-                raise e
-        finally:
-            cur.close()
+                for tts in tmp_sql_list:
+                    # 创建表
+                    logger.info(f"{tts.create_stat}")
+                    cur.execute(tts.create_stat)
+                    # 创建索引
+                    logger.info(f"{tts.index_stat}")
+                    cur.execute(tts.index_stat)
+                    # 插入语句
+                    logger.info(tts.execute_insert_stat)
+                    datas = pl.DataFrame([list(d) for d in data_list],
+                                         schema=search_buffer.select_fields,
+                                         infer_schema_length=None,
+                                         orient="row").select(tts.fields).unique().to_numpy().tolist()
+                    if datas:
+                        cur.executemany(tts.execute_insert_stat, datas)
+
+            finally:
+                cur.close()
+
+        return pl.DataFrame([list(d) for d in data_list],
+                            schema=search_buffer.select_fields,
+                            infer_schema_length=None,
+                            orient="row").lazy().with_columns(*expr_list)
 
 
 @Progress(prefix="export", suffix="db")
