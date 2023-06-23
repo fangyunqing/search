@@ -81,7 +81,7 @@ class Search(db.Model, SerializerMixin):
 class SearchCondition(db.Model, SerializerMixin):
     __tablename__ = "search_condition"
     serialize_only = ("id", "name", "display", "datatype", "order", "create_time", "list_values", "date_default",
-                      "fuzzy_query", "condition_type")
+                      "fuzzy_query", "condition_type", "required")
     __table_args__ = (
         db.UniqueConstraint('search_id', 'name', name='uix_search_condition_id_name'),
     )
@@ -105,6 +105,8 @@ class SearchCondition(db.Model, SerializerMixin):
     condition_type = Column(String(128))
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
+    # 是否必填
+    required = Column(String(1), default='0')
     # 日期默认值
     date_default = Column(String(128))
 

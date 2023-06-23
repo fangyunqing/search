@@ -7,13 +7,15 @@ __author__ = 'fyq'
 
 import copy
 import hashlib
-import math
+import os
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import List, Dict, Set, Tuple
 
 import redis
 import simplejson
+from dateutil import rrule
 from flask import current_app
 from munch import Munch
 from sortedcontainers import SortedKeyList
@@ -27,9 +29,6 @@ from search.exceptions import SearchException
 from search.extend import redis_pool
 from search.util.convert import data2munch, data2DictOrList
 from search.util.redis import redis_lock
-
-from datetime import datetime
-from dateutil import rrule
 
 
 @dataclass
@@ -116,12 +115,16 @@ class AbstractSearchContextManager(ISearchContextManager):
         search_condition_list: List[models.SearchCondition] = models.SearchCondition.query.filter_by(
             search_id=search.id).order_by(models.SearchCondition.order).all()
         not_normal_list = []
+
+        # 条件至少选择一个
+        if len(search_md5.search_sort_condition_list) == 0:
+            raise SearchException(f"条件至少选择一个查询！")
+
         for search_condition in search_condition_list:
-            if search_condition.condition_type == constant.ConditionType.TIME \
-                    and search_condition.name not in search_md5.search_sort_condition_list:
+            if search_condition.required == '1' and search_condition.name not in search_md5.search_sort_condition_list:
                 not_normal_list.append(search_condition.display)
         if len(not_normal_list) > 0:
-            raise SearchException(f"条件[{not_normal_list}]不能为空")
+            raise SearchException(f"条件[{not_normal_list}]为必填项,不能为空")
 
         with redis_lock(key=constant.RedisKey.SEARCH_CONTEXT_LOCK,
                         ex=600,
@@ -266,18 +269,21 @@ class SearchContextManager(AbstractSearchContextManager):
     def _type(self, search_context: SearchContext) -> None:
         time_values = []
         for k, v in search_context.search_condition_dict.items():
-            if v.condition_type == constant.ConditionType.TIME:
+            if v.condition_type == constant.ConditionType.TIME and k in search_context.search_md5.search_conditions:
                 time_values.append(search_context.search_md5.search_conditions[k])
 
-        dt1 = datetime.strptime(time_values[0][0:10], "%Y-%m-%d")
-        dt2 = datetime.strptime(time_values[1][0:10], "%Y-%m-%d")
+        if len(time_values) >= 2:
+            dt1 = datetime.strptime(time_values[0][0:10], "%Y-%m-%d")
+            dt2 = datetime.strptime(time_values[1][0:10], "%Y-%m-%d")
 
-        days = max(rrule.rrule(freq=rrule.DAILY,
-                               dtstart=dt1,
-                               until=dt2).count(),
-                   rrule.rrule(freq=rrule.DAILY,
-                               dtstart=dt2,
-                               until=dt1).count())
+            days = max(rrule.rrule(freq=rrule.DAILY,
+                                   dtstart=dt1,
+                                   until=dt2).count(),
+                       rrule.rrule(freq=rrule.DAILY,
+                                   dtstart=dt2,
+                                   until=dt1).count())
+        else:
+            days = 1800
         field_count = len(search_context.search_md5.search_original_field_list)
         condition_count = len(search_context.search_md5.search_sort_condition_list)
 

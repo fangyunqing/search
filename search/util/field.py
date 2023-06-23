@@ -34,6 +34,23 @@ def get_pl_expr(field_name: str) -> Optional[pl.Expr]:
         return pl.col(field_name).cast(pl.Boolean)
 
 
+def get_pl_type(field_name: str):
+    if field_name.startswith(_int):
+        return pl.Int32
+    elif field_name.startswith(_float):
+        return pl.Decimal(precision=20, scale=8)
+    elif field_name.startswith(_uuid):
+        return pl.Utf8
+    elif field_name.startswith(_str):
+        return pl.Utf8
+    elif field_name.startswith(_datetime):
+        return pl.Datetime
+    elif field_name.startswith(_date):
+        return pl.Date
+    elif field_name.startswith(_bool):
+        return pl.Boolean
+
+
 def get_sql_field_type(field_name: str) -> Optional[str]:
     if field_name.startswith(_int):
         return f"{field_name} int"

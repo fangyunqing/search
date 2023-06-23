@@ -27,7 +27,7 @@ from search.core.progress import Progress
 from search.core.search_context import SearchContext
 from search.core.strategy import FetchLengthStrategy, search_strategy
 from search.exceptions import FieldNameException
-from search.util.field import get_sql_field_type, get_pl_expr
+from search.util.field import get_sql_field_type, get_pl_expr, get_pl_type
 
 pl.Config(activate_decimals=True, set_fmt_str_lengths=100)
 
@@ -364,10 +364,12 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                       tmp_sql_list: List[TempTableStatement],
                       first: bool = False) -> Optional[pl.LazyFrame]:
         expr_list = []
+        type_list = []
         for select_field in search_buffer.select_fields:
             expr = get_pl_expr(select_field)
             if expr is not None:
                 expr_list.append(expr)
+                type_list.append(get_pl_type(select_field))
             else:
                 raise FieldNameException(search_buffer.name, select_field)
 
@@ -418,7 +420,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                 cur.close()
 
         if len(data_list) == 0:
-            return pl.LazyFrame(schema=search_buffer.select_fields)
+            return pl.LazyFrame(schema=[(a, b) for a, b in zip(search_buffer.select_fields, type_list)])
         else:
             return pl.DataFrame([list(d) for d in data_list],
                                 schema=search_buffer.select_fields,
