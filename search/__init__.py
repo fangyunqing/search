@@ -49,6 +49,10 @@ def create_app():
 
         logger.info(f"请求参数:{br.to_dict()}")
 
+    @app.before_request
+    def check_header():
+        pass
+
     @app.after_request
     def after_request(response: Response):
 

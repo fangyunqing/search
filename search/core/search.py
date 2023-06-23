@@ -122,7 +122,7 @@ class Search(ISearch):
                 if r.set(name=thread_key,
                          value=1,
                          nx=True,
-                         ex=1800):
+                         ex=7200):
                     progress_manager.set_new_progress_step(constant.SEARCH, search_context.search_key)
                     thread_pool.submit(self._search_thread_func,
                                        current_app._get_current_object(),
@@ -175,7 +175,7 @@ class Search(ISearch):
             if r.set(name=thread_key,
                      value=1,
                      nx=True,
-                     ex=1800,
+                     ex=7200,
                      ):
                 progress_manager.set_new_progress_step(constant.EXPORT, search_context.search_key)
                 thread_pool.submit(self._export_thread_func,
