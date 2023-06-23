@@ -417,10 +417,13 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
             finally:
                 cur.close()
 
-        return pl.DataFrame([list(d) for d in data_list],
-                            schema=search_buffer.select_fields,
-                            infer_schema_length=None,
-                            orient="row").lazy().with_columns(*expr_list)
+        if len(data_list) == 0:
+            return pl.LazyFrame(schema=search_buffer.select_fields)
+        else:
+            return pl.DataFrame([list(d) for d in data_list],
+                                schema=search_buffer.select_fields,
+                                infer_schema_length=None,
+                                orient="row").lazy().with_columns(*expr_list)
 
 
 @Progress(prefix="export", suffix="db")
