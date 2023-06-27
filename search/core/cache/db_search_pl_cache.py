@@ -310,6 +310,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                 raise FieldNameException(search_buffer.name, select_field)
 
         fetch_len = self.fetch_strategy.get_fetch_rows(search_buffer.select_fields)
+        index = 0
         for conn in conn_list:
             cur = conn.cursor()
             try:
@@ -318,7 +319,6 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                 logger.info(f"{sql} {search_buffer.args}")
                 try:
                     cur.execute(sql, tuple(search_buffer.args))
-                    index = 0
                     while True:
                         datas = cur.fetchmany(fetch_len)
                         if not datas:
@@ -344,8 +344,8 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                     # 插入语句
                     sql_dir = f"{sql_tmp_dir}{os.sep}*.parquet"
                     if len(glob.glob(sql_dir)) > 0:
-                        logger.info(tts.execute_insert_stat)
                         datas = pl.scan_parquet(sql_dir).select(tts.fields).unique().collect().to_numpy().tolist()
+                        logger.info(f"{tts.execute_insert_stat}-{len(datas)}-{tts.fields}")
                         if datas:
                             cur.executemany(tts.execute_insert_stat, datas)
             finally:
