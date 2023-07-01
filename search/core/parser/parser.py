@@ -61,7 +61,7 @@ class SearchParser(ISearchParser):
                     new_search_sql_list = list(copy(search_sql_list))
                     new_search_sql_list.pop(search_sql_index)
                     cls._find(new_search_sql_list, ",".join(
-                        [search_sql_result.right for search_sql_result in search_sql.results]), search_field, order + 1)
+                        [search_sql_result.real_right for search_sql_result in search_sql.results]), search_field, order + 1)
                     break
 
     @transactional
