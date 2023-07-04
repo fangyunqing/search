@@ -23,7 +23,9 @@ def get_pl_expr(field_name: str) -> Optional[pl.Expr]:
     elif field_name.startswith(_float):
         return pl.col(field_name).cast(pl.Decimal(precision=20, scale=8))
     elif field_name.startswith(_uuid):
-        return pl.col(field_name).apply(lambda x: str(x)).cast(pl.Utf8)
+        return (pl.col(field_name)
+                .apply(lambda x: str(x) if x else None, skip_nulls=False)
+                .cast(pl.Utf8))
     elif field_name.startswith(_str):
         return pl.col(field_name).cast(pl.Utf8)
     elif field_name.startswith(_datetime):
