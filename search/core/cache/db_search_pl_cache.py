@@ -347,11 +347,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                         datas = pl.scan_parquet(sql_dir).select(tts.fields).unique().collect().to_numpy().tolist()
                         logger.info(f"{tts.execute_insert_stat}-{len(datas)}-{tts.fields}")
                         if datas:
-                            if len(datas) == 49377:
-                                for data in datas:
-                                    cur.executemany(tts.execute_insert_stat, [data])
-                            else:
-                                cur.executemany(tts.execute_insert_stat, datas)
+                            cur.executemany(tts.execute_insert_stat, datas)
             finally:
                 cur.close()
 
@@ -360,6 +356,7 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
             "dir": sql_tmp_dir
         }
 
+    @search_cost_time
     def exec_with_top(self,
                       search_context: SearchContext,
                       search_buffer: munch.Munch,
