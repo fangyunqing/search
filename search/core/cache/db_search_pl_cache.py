@@ -314,8 +314,6 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
         for conn in conn_list:
             cur = conn.cursor()
             try:
-                cur._cursor.fast_executemany = True
-                # 执行查询
                 logger.info(f"{sql} {search_buffer.args}")
                 try:
                     cur.execute(sql, tuple(search_buffer.args))
@@ -347,7 +345,9 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                         datas = pl.scan_parquet(sql_dir).select(tts.fields).unique().collect().to_numpy().tolist()
                         logger.info(f"{tts.execute_insert_stat}-{len(datas)}-{tts.fields}")
                         if datas:
+                            cur._cursor.fast_executemany = True
                             cur.executemany(tts.execute_insert_stat, datas)
+                            conn.commit()
             finally:
                 cur.close()
 
@@ -380,7 +380,6 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
         for conn in conn_list:
             cur = conn.cursor()
             try:
-                cur._cursor.fast_executemany = True
                 try:
                     if first:
                         if tops > 0:
@@ -415,7 +414,9 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
                                          infer_schema_length=None,
                                          orient="row").select(tts.fields).unique().to_numpy().tolist()
                     if datas:
+                        cur._cursor.fast_executemany = True
                         cur.executemany(tts.execute_insert_stat, datas)
+                        conn.commit()
 
             finally:
                 cur.close()
