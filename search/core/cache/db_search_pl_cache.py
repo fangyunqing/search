@@ -174,17 +174,18 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
             return self.exec_new_df(search_context=search_context,
                                     df=data_df)
         finally:
-            if len(tmp_tables) > 0:
-                for conn in conn_list:
-                    cur = conn.cursor()
-                    try:
-                        for ttb in tmp_tables:
-                            try:
-                                cur.execute(f"DROP TABLE {ttb}")
-                            except Exception as e:
-                                logger.warning(str(e))
-                    finally:
-                        cur.close()
+            for conn in conn_list:
+                cur = conn.cursor()
+                try:
+                    for ttb in tmp_tables:
+                        try:
+                            logger.info(f"DROP TABLE {ttb}")
+                            cur.execute(f"DROP TABLE {ttb}")
+                        except Exception as e:
+                            logger.warning(str(e))
+                finally:
+                    cur.close()
+
             [conn.close() for conn in conn_list]
             shutil.rmtree(tmp_dir)
 
