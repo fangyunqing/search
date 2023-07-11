@@ -336,8 +336,11 @@ class SearchContextManager(AbstractSearchContextManager):
             if search_buffer.search_sql.other_expression and 'GROUP BY' in search_buffer.search_sql.other_expression:
                 group_by = True
             # 临时表名
-            tmp_md5 = hashlib.md5(",".join(search_buffer.select_fields).encode(encoding='utf-8')).hexdigest()
-            search_buffer.tmp_tablename = "#{}" + "_" + str(search_buffer.search_sql.id) + "_" + tmp_md5
+            search_buffer.tmp_tablename = ("#{}" +
+                                           "_" +
+                                           str(search_buffer.search_sql.id) +
+                                           "_" +
+                                           search_context.search_md5.search_md5)
             # 临时字段对应临时表名
             for tmp_field in search_buffer.tmp_fields:
                 tmp_table[tmp_field] = search_buffer.search_sql.id
