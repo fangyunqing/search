@@ -12,6 +12,7 @@ import redis
 import simplejson as json
 from flask import current_app, Flask, make_response, send_file, Response
 from loguru import logger
+from munch import Munch
 
 from search import constant, models
 from search.core.cache import *
@@ -19,6 +20,7 @@ from search.core.progress import progress_manager
 from search.core.search_context import SearchContext, scm
 from search.core.search_local import search_local
 from search.core.search_md5 import create_search_md5, SearchMd5
+from search.core.search_param import sph
 from search.core.strategy import search_strategy
 from search.entity import CommonResult, MessageCode
 from search.exceptions import FileNotFindSearchException, SearchStrategyException
@@ -75,20 +77,21 @@ class Search(ISearch):
                     },
                     searchField: ['field1', field2]
                 }
-                param: {
+                params: {
                     pageNumber: 2,
                     cache: 0,
                 }
             }
-        :param data:
+        :params data:
         :return:
         """
         data = json.loads(data)
         search_node = data.get(constant.SEARCH)
-        param = data.get(constant.PARAM)
-        page_number = param.get(constant.PAGE_NUMBER)
+        params = Munch(data.get(constant.PARAM))
+        page_number = params.get(constant.PAGE_NUMBER)
         search_md5: SearchMd5 = create_search_md5(search_node)
         search_context: SearchContext = scm.get_search_context(search_md5)
+        sph.handle(params=params, search_context=search_context)
         data, page = self._redis_search_cache.get_data(search_context=search_context, page_number=page_number)
         if data is None:
             try:
@@ -97,7 +100,7 @@ class Search(ISearch):
                     return CommonResult.fail(code=MessageCode.LAST_PAGE.code, message=MessageCode.LAST_PAGE.desc)
             except FileNotFindSearchException:
                 if page_number == 1:
-                    data_df = self._db_search_cache.get_data(search_context=search_context, top=True)
+                    data_df = self._db_search_cache.get_data(search_context=search_context, top=True, params=params)
                     if len(data_df) > 0:
                         data_df_real_len = (len(
                             data_df) // search_context.search.page_size) * search_context.search.page_size
@@ -126,7 +129,8 @@ class Search(ISearch):
                     progress_manager.set_new_progress_step(constant.SEARCH, search_context.search_key)
                     thread_pool.submit(self._search_thread_func,
                                        current_app._get_current_object(),
-                                       search_context) \
+                                       search_context,
+                                       params) \
                         .add_done_callback(lambda f: r.delete(thread_key))
         if data is None:
             return CommonResult.fail(code=MessageCode.NOT_READY.code, message=MessageCode.NOT_READY.desc)
@@ -138,7 +142,8 @@ class Search(ISearch):
         search_md5: SearchMd5 = create_search_md5(m)
         search_context: SearchContext = scm.get_search_context(search_md5)
         self._db_export_cache.get_data(search_context=search_context,
-                                       top=False)
+                                       top=False,
+                                       params=Munch())
         return CommonResult.success()
 
     def export(self, data: str) -> Response:
@@ -187,12 +192,13 @@ class Search(ISearch):
             response.status_code = 250
             return response
 
-    def _search_thread_func(self, app: Flask, search_context: SearchContext):
+    def _search_thread_func(self, app: Flask, search_context: SearchContext, params: Munch):
         try:
             with app.app_context():
                 with search_local(key=constant.SEARCH_MD5, value=search_context.search_key):
                     data_df = self._db_search_cache.get_data(search_context=search_context,
-                                                             top=False)
+                                                             top=False,
+                                                             params=params)
                     if len(data_df) > search_context.search.file_cache_limit:
                         file_dir = app.config.setdefault("FILE_DIR", constant.DEFAULT_FILE_DIR)
                         self._parquet_search_cache.set_data(search_context=search_context,

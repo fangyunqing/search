@@ -124,4 +124,4 @@ def search_progress():
 
 @search_bp.route(rule="/search_param", methods=["GET"])
 def search_param():
-    return CommonResult.success(data=[sph.params])
+    return CommonResult.success(data=sph.params)

@@ -49,7 +49,7 @@ class TempTableStatement:
 class DBSearchPolarsCache(metaclass=ABCMeta):
 
     @abstractmethod
-    def get_data(self, search_context: SearchContext) -> Optional[pl.DataFrame]:
+    def get_data(self, search_context: SearchContext, params: munch.Munch, top: bool = False) -> Optional[pl.DataFrame]:
         pass
 
 
@@ -57,9 +57,16 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
 
     @search_strategy.add_lock
     @search_cost_time
-    def get_data(self, search_context: SearchContext, top: bool = False) -> Optional[pl.DataFrame]:
+    def get_data(self, search_context: SearchContext, params: munch.Munch, top: bool = False) -> Optional[pl.DataFrame]:
         # 所有的连接数
-        conn_list = dm.get_connections()
+        if top:
+            if params.setdefault("top_in_history", True):
+                conn_list = dm.get_connections()
+            else:
+                conn_list = [dm.get_main_connection()]
+        else:
+            conn_list = dm.get_connections()
+
         # 执行步骤
         self.count(search_context=search_context)
         # 总数据
