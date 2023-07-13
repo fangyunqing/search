@@ -26,7 +26,7 @@ from search.core.search_md5 import SearchMd5
 from search.core.search_weight import SearchWeight
 from search.entity.common_result import BaseDataClass
 from search.exceptions import SearchException
-from search.extend import redis_pool
+from search.extend import redis_pool, db
 from search.util.convert import data2munch, data2DictOrList
 from search.util.redis import redis_lock
 
@@ -95,6 +95,10 @@ class ISearchContextManager(metaclass=ABCMeta):
 
     @abstractmethod
     def delete_search_context(self, search_name: str):
+        pass
+
+    @abstractmethod
+    def clear_cache(self, search_context: SearchContext):
         pass
 
 
@@ -167,6 +171,23 @@ class AbstractSearchContextManager(ISearchContextManager):
                 if len(all_keys) > 0:
                     r.delete(*all_keys)
 
+    def clear_cache(self, search_context: SearchContext):
+        with redis_lock(key=constant.RedisKey.SEARCH_CONTEXT_LOCK,
+                        ex=600,
+                        forever=True) as res:
+            if res:
+                r = redis.Redis(connection_pool=redis_pool)
+                all_keys = r.keys(pattern=f"{search_context.search_key}_*")
+                if len(all_keys) > 0:
+                    r.delete(*all_keys)
+
+                (models.SearchFile
+                 .query
+                 .filter_by(status=constant.FileStatus.USABLE, search_md5=search_context.search_key)
+                 .update({"status": constant.FileStatus.MOUNTING}))
+
+                db.session.commit()
+
     @abstractmethod
     def _init_search_context(self, search_md5: SearchMd5) -> SearchContext:
         pass
@@ -213,7 +234,7 @@ class SearchContextManager(AbstractSearchContextManager):
         # 查询排序
         search_sort_list: List[models.SearchSort] = (
             models.SearchSort.query.filter_by(search_id=search.id).order_by(models.SearchSort.order).all()
-                                    )
+        )
 
         search_buffer_dict: Dict[int, SearchBuffer] = {}
         for search_field in search_field_list:

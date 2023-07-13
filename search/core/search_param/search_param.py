@@ -10,7 +10,7 @@ from typing import List
 
 from munch import Munch
 
-from search.core.search_context import SearchContext
+from search.core.search_context import SearchContext, scm
 
 _params: List["SearchParam"] = []
 
@@ -23,7 +23,7 @@ class SearchParam(metaclass=ABCMeta):
     default: bool = False
 
     @abstractmethod
-    def __call__(self, value: bool, search_context: SearchContext):
+    def __call__(self, value: bool, do_search: bool, search_context: SearchContext):
         pass
 
     def __init_subclass__(cls, **kwargs):
@@ -44,8 +44,20 @@ class TopInHistorySearchParam(SearchParam):
 
     default = False
 
-    def __call__(self, value: bool, search_context: SearchContext):
+    def __call__(self, value: bool, do_search: bool, search_context: SearchContext):
         pass
+
+
+class ClearCacheSearchParam(SearchParam):
+    name = "clear_cache"
+
+    text = "清空缓存"
+
+    default = False
+
+    def __call__(self, value: bool, do_search: bool, search_context: SearchContext):
+        if do_search and value:
+            scm.clear_cache(search_context=search_context)
 
 
 class ISearchParamHandler(metaclass=ABCMeta):
@@ -67,10 +79,13 @@ class SearchParamHandler(ISearchParamHandler):
         return [param.param for param in _params]
 
     def handle(self, params: Munch, search_context: SearchContext):
+        if "do_search" not in params:
+            params["do_search"] = False
+
         for param in _params:
             if param.name not in params:
                 params[param.name] = param.default
-            param(value=params[param.name], search_context=search_context)
+            param(value=params[param.name], search_context=search_context, do_search=params["do_search"])
 
 
 sph = SearchParamHandler()

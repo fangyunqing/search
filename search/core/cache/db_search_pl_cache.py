@@ -191,9 +191,10 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                         except Exception as e:
                             logger.warning(str(e))
                 finally:
+                    conn.commit()
                     cur.close()
+                    conn.close()
 
-            [conn.close() for conn in conn_list]
             shutil.rmtree(tmp_dir)
 
     @abstractmethod
