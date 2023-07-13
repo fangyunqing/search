@@ -42,7 +42,7 @@ class TopInHistorySearchParam(SearchParam):
 
     text = "Top历史库"
 
-    default = True
+    default = False
 
     def __call__(self, value: bool, search_context: SearchContext):
         pass
