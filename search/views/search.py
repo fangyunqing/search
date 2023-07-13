@@ -13,6 +13,7 @@ from loguru import logger
 
 from search import models, dm
 from search.core import current_search
+from search.core.search_param import sph
 
 from search.entity import CommonResult
 
@@ -119,3 +120,8 @@ def export_progress():
 @search_bp.route(rule="/search_progress", methods=["POST"])
 def search_progress():
     return current_search.search_progress(request.data.decode())
+
+
+@search_bp.route(rule="/search_param", methods=["GET"])
+def search_param():
+    return CommonResult.success(data=[sph.params])

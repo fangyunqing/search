@@ -160,8 +160,9 @@ class AbstractSearchContextManager(ISearchContextManager):
                         forever=True) as res:
             if res:
                 r = redis.Redis(connection_pool=redis_pool)
-                search: models.Search = \
+                search: models.Search = (
                     models.Search.query.filter_by(name=search_name).first()
+                )
                 all_keys = r.keys(pattern=f"{search.name}_*")
                 if len(all_keys) > 0:
                     r.delete(*all_keys)
