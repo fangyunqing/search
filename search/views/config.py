@@ -7,8 +7,7 @@ __author__ = 'fyq'
 
 from flask import Blueprint, request
 
-from search.core.config.datasource import datasource_config
-from search.core.config.search import search_config
+from search.core.config import search_function_config, datasource_config, search_config
 
 config_bp = Blueprint("config", __name__)
 
@@ -111,3 +110,23 @@ def copy(search_id):
 @config_bp.route(rule="/search/delete/<int:version>/<int:search_id>", methods=["GET"])
 def delete(search_id, version):
     return search_config.delete(search_id, version)
+
+
+@config_bp.route(rule="/function", methods=["GET"])
+def search_function():
+    return search_function_config.search_function(request.args)
+
+
+@config_bp.route(rule="/function/<int:function_id>", methods=["GET"])
+def function(function_id):
+    return search_function_config.function(function_id=function_id)
+
+
+@config_bp.route(rule="/function/save", methods=["POST"])
+def save_function():
+    return search_function_config.save(request.json)
+
+
+@config_bp.route(rule="/function/delete/<int:function_id>", methods=["GET"])
+def delete_function(function_id):
+    return search_function_config.delete(function_id)

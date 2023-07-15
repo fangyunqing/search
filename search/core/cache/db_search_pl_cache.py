@@ -21,7 +21,7 @@ import pyodbc
 from loguru import logger
 from pyext import RuntimeModule
 
-from search import dm
+from search import dm, models
 from search.core.decorator import search_cost_time
 from search.core.progress import Progress
 from search.core.search_context import SearchContext
@@ -240,17 +240,40 @@ class DefaultDBPolarsCache(AbstractDBSearchPolarsCache):
             if field_name in search_field_dict:
                 search_field = search_field_dict[field_name]
                 try:
-                    if search_field.rule and search_field.rule.startswith(("def", "import", "from")):
-                        md = RuntimeModule.from_string('a', search_field.rule)
-                        find = False
-                        for v in md.__dict__.values():
-                            if callable(v):
-                                expr_list.append(v().alias(new_field))
-                                find = True
-                                break
-                        if not find:
-                            expr_list.append(pl.lit(None).alias(new_field))
-                            logger.warning(f"{search_context.search_md5.search_name}-{search_field.name}-rule未发现可执行函数")
+                    if search_field.builtin_function:
+                        builtin_function: models.SearchFunction = (models.SearchFunction
+                                                                   .query
+                                                                   .filter_by(name=search_field.builtin_function)
+                                                                   .first())
+                        try:
+                            md = RuntimeModule.from_string('a', builtin_function.value)
+                            find = False
+                            for v in md.__dict__.values():
+                                if callable(v):
+                                    expr_list.append(v().alias(new_field))
+                                    find = True
+                                    break
+                            if not find:
+                                expr_list.append(pl.lit(None).alias(new_field))
+                                logger.warning(f"{search_context.search_md5.search_name}"
+                                               f"-{search_field.name}-内置函数执行错误")
+                        except Exception as e:
+                            logger.exception(e)
+                    elif search_field.rule and search_field.rule.startswith(("def", "import", "from")):
+                        try:
+                            md = RuntimeModule.from_string('a', search_field.rule)
+                            find = False
+                            for v in md.__dict__.values():
+                                if callable(v):
+                                    expr_list.append(v().alias(new_field))
+                                    find = True
+                                    break
+                            if not find:
+                                expr_list.append(pl.lit(None).alias(new_field))
+                                logger.warning(f"{search_context.search_md5.search_name}"
+                                               f"-{search_field.name}-rule未发现可执行函数")
+                        except Exception as e:
+                            logger.exception(e)
                     else:
                         if field_name in df.columns:
                             expr_list.append(pl.col(field_name).alias(new_field))

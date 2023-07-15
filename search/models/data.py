@@ -113,7 +113,8 @@ class SearchCondition(db.Model, SerializerMixin):
 
 class SearchField(db.Model, SerializerMixin):
     __tablename__ = "search_field"
-    serialize_only = ("id", "name", "display", "datatype", "rule", "result_fields", "order", "create_time")
+    serialize_only = ("id", "name", "display", "datatype", "rule", "result_fields", "order", "create_time",
+                      "builtin_function")
     __table_args__ = (
         db.UniqueConstraint('search_id', 'name', name='uix_search_field_id_name'),
     )
@@ -125,6 +126,8 @@ class SearchField(db.Model, SerializerMixin):
     display = Column(String(255), nullable=False)
     # 规则
     rule = Column(String(1024))
+    # 内置函数
+    builtin_function = Column(String(128))
     # 结果字段
     result_fields = Column(String(2048))
     # 数据类型 int str date float
@@ -342,3 +345,25 @@ class SearchSort(db.Model, SerializerMixin):
     search_id = Column(Integer, ForeignKey("search.id"))
     # 生成时间
     create_time = Column(DateTime(timezone=True), default=func.now())
+
+
+class SearchFunction(db.Model, SerializerMixin):
+    __tablename__ = "search_function"
+    __table_args__ = (
+        db.UniqueConstraint('name', name='uix_search_function_name'),
+    )
+
+    # 主键
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    # 名称
+    name = Column(String(255), nullable=False)
+    # 展示名称
+    display = Column(String(255), nullable=False)
+    # 值
+    value = Column(Text)
+    # 生成时间
+    create_time = Column(DateTime(timezone=True), default=func.now())
+    # 版本信息
+    version = Column(Integer, default=0)
+
+
