@@ -27,4 +27,13 @@ class ThreadKey(Key):
                 f"{search_type}_{search_context.search_key}")
 
 
+class EmailExportNoticeKey(Key):
+
+    def generate(self, search_context: SearchContext, **kwargs) -> str:
+        return (f"{constant.RedisKey.EXPORT}"
+                "-"
+                f"{search_context.search_key}")
+
+
 thread_key = ThreadKey()
+email_export_notice_key = EmailExportNoticeKey()

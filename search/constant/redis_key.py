@@ -26,6 +26,10 @@ class RedisKey:
 
     EXPORT = "export"
 
+    EMAIL_EXPORT_NOTICE = "email_export_notice"
+
+
+
 
 
 

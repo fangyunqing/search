@@ -5,4 +5,4 @@
 
 __author__ = 'fyq'
 
-from .key import thread_key
+from .key import thread_key, email_export_notice_key
