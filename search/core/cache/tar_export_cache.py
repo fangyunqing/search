@@ -41,7 +41,9 @@ class AbstractTarExportCache(TarExportCache):
     def get_data(self, search_context: SearchContext) -> Optional[models.SearchFile]:
         search_file: models.SearchFile = (models.SearchFile
                                           .query
-                                          .filter_by(search_md5=search_context.search_key, use=constant.EXPORT)
+                                          .filter_by(search_md5=search_context.search_key,
+                                                     use=constant.EXPORT,
+                                                     status=constant.FileStatus.USABLE)
                                           .order_by(desc(models.SearchFile.create_time))
                                           .first())
         return search_file

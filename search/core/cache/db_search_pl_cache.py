@@ -79,12 +79,12 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
         # 文件信息
         file_info_list = []
         try:
-            for search_cache_index, search_buffer in enumerate(search_context.search_buffer_list):
+            for search_buffer_index, search_buffer in enumerate(search_context.search_buffer_list):
                 tmp_tablename = search_buffer.tmp_tablename.format(get_ident())
                 sql_list: List[str] = []
                 tmp_sql_list: List[TempTableStatement] = []
                 select_expression = search_buffer.search_sql.select_expression
-                if search_cache_index == 0 and top:
+                if search_buffer_index == 0 and top:
                     if select_expression:
                         select_expression = select_expression + " TOP {}"
                     else:
@@ -148,13 +148,17 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                                                 sql=sql,
                                                 conn_list=conn_list,
                                                 tmp_sql_list=tmp_sql_list,
-                                                first=search_cache_index == 0)
+                                                first=search_buffer_index == 0)
                     if new_df is not None:
                         if data_df is None:
                             data_df = new_df
                         else:
+                            if search_buffer.search_sql.how == "left_condition_inner":
+                                how = "left" if len(search_buffer.args) == 0 else "inner"
+                            else:
+                                how = search_buffer.search_sql.how
                             data_df = data_df.join(other=new_df,
-                                                   how=search_buffer.search_sql.how,
+                                                   how=how,
                                                    on=search_buffer.join_fields)
                 else:
                     file_info_list.append(self.exec(conn_list=conn_list,
@@ -171,9 +175,12 @@ class AbstractDBSearchPolarsCache(DBSearchPolarsCache):
                         if file_info_index == 0:
                             data_df = pl.scan_parquet(sql_dir)
                         else:
+                            how = file_info.get('search_buffer').search_sql.how
+                            if how == "left_condition_inner":
+                                how = "left" if len(file_info.get('search_buffer').args) == 0 else "inner"
                             new_df = pl.scan_parquet(sql_dir)
                             data_df = data_df.join(other=new_df,
-                                                   how=file_info.get('search_buffer').search_sql.how,
+                                                   how=how,
                                                    on=file_info.get('search_buffer').join_fields)
 
             if data_df is None:

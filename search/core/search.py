@@ -161,10 +161,13 @@ class Search(ISearch):
         :param data:
         :return:
         """
-        m = json.loads(data)
+        data = json.loads(data)
+        m = data.get(constant.SEARCH)
+        params = Munch(data.get(constant.PARAM))
         search_md5: SearchMd5 = create_search_md5(m)
         search_context: SearchContext = scm.get_search_context(search_md5)
         search_file = self._tar_export_cache.get_data(search_context=search_context)
+        sph.handle(params=params, search_context=search_context)
         if search_file and os.path.isfile(search_file.path):
             return make_response(send_file(path_or_file=search_file.path,
                                            as_attachment=True))
@@ -185,7 +188,8 @@ class Search(ISearch):
                 progress_manager.set_new_progress_step(constant.EXPORT, search_context.search_key)
                 thread_pool.submit(self._export_thread_func,
                                    current_app._get_current_object(),
-                                   search_context) \
+                                   search_context,
+                                   params) \
                     .add_done_callback(lambda f: r.delete(thread_key))
 
             response = make_response()
@@ -212,14 +216,15 @@ class Search(ISearch):
         except Exception as e:
             logger.exception(e)
 
-    def _export_thread_func(self, app: Flask, search_context: SearchContext):
+    def _export_thread_func(self, app: Flask, search_context: SearchContext, params: Munch):
         try:
             with app.app_context():
                 with search_local(key=constant.SEARCH_MD5, value=search_context.search_key):
                     data_df = self._csv_export_cache.get_data(search_context=search_context)
                     if data_df is None:
                         data_df = self._db_export_cache.get_data(search_context=search_context,
-                                                                 top=False)
+                                                                 top=False,
+                                                                 params=params)
                         data_df = data_df.to_pandas(use_pyarrow_extension_array=True)
                     file_dir = app.config.setdefault("FILE_DIR", constant.DEFAULT_FILE_DIR)
                     self._tar_export_cache.set_data(search_context=search_context,
@@ -230,7 +235,8 @@ class Search(ISearch):
 
     def export_progress(self, data: str) -> dict:
         data = json.loads(data)
-        search_md5: SearchMd5 = create_search_md5(data)
+        m = data.get(constant.SEARCH)
+        search_md5: SearchMd5 = create_search_md5(m)
         search: models.Search = models.Search.query.filter_by(name=search_md5.search_name).first()
         if not search:
             return CommonResult.fail(code=MessageCode.NOT_PROGRESS.code,

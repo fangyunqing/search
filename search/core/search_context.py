@@ -98,7 +98,7 @@ class ISearchContextManager(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def clear_cache(self, search_context: SearchContext):
+    def clear_cache(self, search_context: SearchContext, search_type: str):
         pass
 
 
@@ -171,22 +171,33 @@ class AbstractSearchContextManager(ISearchContextManager):
                 if len(all_keys) > 0:
                     r.delete(*all_keys)
 
-    def clear_cache(self, search_context: SearchContext):
+    def clear_cache(self, search_context: SearchContext, search_type: str):
         with redis_lock(key=constant.RedisKey.SEARCH_CONTEXT_LOCK,
                         ex=600,
                         forever=True) as res:
             if res:
-                r = redis.Redis(connection_pool=redis_pool)
-                all_keys = r.keys(pattern=f"{search_context.search_key}_*")
-                if len(all_keys) > 0:
-                    r.delete(*all_keys)
+                if search_type == constant.FileUse.SEARCH:
+                    r = redis.Redis(connection_pool=redis_pool)
+                    all_keys = r.keys(pattern=f"{search_context.search_key}_*")
+                    if len(all_keys) > 0:
+                        r.delete(*all_keys)
 
-                (models.SearchFile
-                 .query
-                 .filter_by(status=constant.FileStatus.USABLE, search_md5=search_context.search_key)
-                 .update({"status": constant.FileStatus.MOUNTING}))
+                    (models.SearchFile
+                     .query
+                     .filter_by(status=constant.FileStatus.USABLE,
+                                search_md5=search_context.search_key,
+                                use=constant.FileUse.SEARCH)
+                     .update({"status": constant.FileStatus.MOUNTING}))
 
-                db.session.commit()
+                    db.session.commit()
+                elif search_type == constant.FileUse.EXPORT:
+                    (models.SearchFile
+                     .query
+                     .filter_by(status=constant.FileStatus.USABLE,
+                                search_md5=search_context.search_key,
+                                use=constant.FileUse.EXPORT)
+                     .update({"status": constant.FileStatus.MOUNTING}))
+                    db.session.commit()
 
     @abstractmethod
     def _init_search_context(self, search_md5: SearchMd5) -> SearchContext:
