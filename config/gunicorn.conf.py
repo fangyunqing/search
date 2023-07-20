@@ -43,6 +43,9 @@ def on_starting(server):
     keys = r.keys(f"{constant.RedisKey.PROGRESS_LOCK_PREFIX}_*")
     if len(keys) > 0:
         r.delete(*keys)
+    keys = r.keys(f"{constant.RedisKey.EXPORT_TAR_NOTICE_PREFIX}_*")
+    if len(keys) > 0:
+        r.delete(*keys)
 
     db = create_engine(SQLALCHEMY_DATABASE_URI)
     obj_session = sessionmaker(db)

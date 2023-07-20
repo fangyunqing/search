@@ -5,12 +5,16 @@
 
 __author__ = 'fyq'
 
-from abc import ABCMeta, abstractmethod, abstractproperty
+from abc import ABCMeta, abstractmethod
 from typing import List
 
 import redis
+from flask import request
 from munch import Munch
+from sqlalchemy import desc
 
+from search import constant, models
+from search.core.notice import export_tar_notice
 from search.core.search_context import SearchContext, scm
 from search.exceptions import SearchException
 from search.extend import redis_pool
@@ -37,7 +41,8 @@ class SearchParam(metaclass=ABCMeta):
     def param(self) -> dict:
         return {
             "name": self.name,
-            "text": self.text
+            "text": self.text,
+            "init": self.default
         }
 
 
@@ -70,14 +75,27 @@ class ClearCacheSearchParam(SearchParam):
 
 
 class EmailNotification4Export(SearchParam):
-    def __call__(self, value: bool, do_search: bool, search_context: SearchContext, search_type: str):
-        pass
-
     name = "email_notification_4_Export"
 
-    text = "导出完成后邮件通知"
+    text = "导出打包完成后邮件通知"
 
-    default = False
+    default = True
+
+    def __call__(self, value: bool, do_search: bool, search_context: SearchContext, search_type: str):
+        if search_type == constant.RedisKey.EXPORT and value:
+            key = thread_key.generate(search_context=search_context, search_type=search_type)
+            r = redis.Redis(connection_pool=redis_pool)
+            search_file: models.SearchFile = (models.SearchFile
+                                              .query
+                                              .filter_by(search_md5=search_context.search_key,
+                                                         use=constant.EXPORT,
+                                                         status=constant.FileStatus.USABLE)
+                                              .order_by(desc(models.SearchFile.create_time))
+                                              .first())
+            if r.exists(key) or not search_file:
+                user_id = request.headers["No"]
+                export_tar_notice.add(search_context=search_context,
+                                      notice_unit=user_id)
 
 
 class ISearchParamHandler(metaclass=ABCMeta):

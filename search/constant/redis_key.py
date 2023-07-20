@@ -26,7 +26,7 @@ class RedisKey:
 
     EXPORT = "export"
 
-    EMAIL_EXPORT_NOTICE = "email_export_notice"
+    EXPORT_TAR_NOTICE_PREFIX = "email_export_notice"
 
 
 

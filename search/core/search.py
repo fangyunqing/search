@@ -16,6 +16,7 @@ from munch import Munch
 
 from search import constant, models
 from search.core.cache import *
+from search.core.notice import export_tar_notice
 from search.core.progress import progress_manager
 from search.core.search_context import SearchContext, scm
 from search.core.search_local import search_local
@@ -190,7 +191,7 @@ class Search(ISearch):
                                    current_app._get_current_object(),
                                    search_context,
                                    params) \
-                    .add_done_callback(lambda f: r.delete(thread_key))
+                    .add_done_callback(lambda f: (r.delete(thread_key), export_tar_notice.notice(search_context)))
 
             response = make_response()
             response.status_code = 250
