@@ -78,7 +78,6 @@ class ExportTarNotice(Notice[str]):
                                 name = search_context.search_condition_dict[k].display
                             text_condition_list.append([name, v])
                         table_data = tabulate.tabulate(tabular_data=text_condition_list,
-                                                       headers=["条件", "值"],
                                                        tablefmt='simple',
                                                        numalign='center',
                                                        stralign='center')
