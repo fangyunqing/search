@@ -77,7 +77,7 @@ class ClearCacheSearchParam(SearchParam):
 class EmailNotification4Export(SearchParam):
     name = "email_notification_4_Export"
 
-    text = "导出打包完成后邮件通知"
+    text = "导出打包完成后弹窗通知"
 
     default = True
 
