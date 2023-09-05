@@ -335,12 +335,20 @@ class SearchContextManager(AbstractSearchContextManager):
                     condition_name = fe.split(".")[1]
                     search_condition = search_context.search_condition_dict.get(condition_name, None)
                     if search_condition and condition_name in search_context.search_md5.search_sort_condition_list:
+                        condition_arg = search_context.search_md5.search_conditions[condition_name]
                         if search_condition.fuzzy_query == "1":
                             where_expression_list.append("'%'+?+'%'")
                             where_expression_list[-2] = "LIKE"
+                            search_buffer.args.append(condition_arg)
+                        elif search_condition.datatype == "lookup":
+                            condition_arg = list(condition_arg.split(","))
+                            where_expression_list.append("(" + ",".join(["?" for _ in condition_arg]) + ")")
+                            where_expression_list[-2] = "IN"
+                            for sub_arg in condition_arg:
+                                search_buffer.args.append(sub_arg)
                         else:
                             where_expression_list.append("?")
-                        search_buffer.args.append(search_context.search_md5.search_conditions[condition_name])
+                            search_buffer.args.append(condition_arg)
                         search_buffer.args_seq.append(condition_name)
                     else:
                         search_sql_condition = search_sql_condition_dict[condition_name]
